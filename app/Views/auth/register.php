@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/css/tabler.min.css">
     <style>
         .domain-addon { min-width: 160px; }
+        .mp-container {
+            height: 40px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 8px 10px;
+            background: #fff;
+        }
     </style>
 </head>
 <body class="d-flex flex-column">
@@ -67,16 +74,16 @@
 
                         <div class="mb-3">
                             <label class="form-label">Numero do cartao</label>
-                            <input type="text" id="form-checkout__cardNumber" class="form-control" autocomplete="off" required>
+                            <div id="form-checkout__cardNumber" class="mp-container"></div>
                         </div>
                         <div class="row g-2">
                             <div class="col-8">
                                 <label class="form-label">Validade</label>
-                                <input type="text" id="form-checkout__expirationDate" class="form-control" placeholder="MM/YY" required>
+                                <div id="form-checkout__expirationDate" class="mp-container"></div>
                             </div>
                             <div class="col-4">
                                 <label class="form-label">CVV</label>
-                                <input type="text" id="form-checkout__securityCode" class="form-control" required>
+                                <div id="form-checkout__securityCode" class="mp-container"></div>
                             </div>
                         </div>
                         <div class="mb-3 mt-2">
@@ -138,7 +145,6 @@
             const tokenInput = document.getElementById('mp_card_token');
             const methodInput = document.getElementById('mp_payment_method_id');
             const last4Input = document.getElementById('mp_last_four_digits');
-            const cardNumberInput = document.getElementById('form-checkout__cardNumber');
             const emailInput = form.querySelector('input[name="email"]');
             const cardholderEmailInput = document.getElementById('form-checkout__cardholderEmail');
 
@@ -157,6 +163,7 @@
 
             const cardForm = mp.cardForm({
                 amount: '1',
+                iframe: true,
                 autoMount: true,
                 form: {
                     id: 'signup-form',
@@ -184,10 +191,14 @@
                             showError('Nao foi possivel gerar token do cartao.');
                             return;
                         }
+                        if (!data.paymentMethodId) {
+                            showError('Nao foi possivel identificar a bandeira do cartao. Digite novamente o numero.');
+                            return;
+                        }
 
                         tokenInput.value = data.token;
                         methodInput.value = data.paymentMethodId || 'desconhecido';
-                        last4Input.value = onlyDigits(cardNumberInput?.value || '').slice(-4);
+                        last4Input.value = '0000';
                         form.submit();
                     },
                     onError: (error) => {
