@@ -70,13 +70,9 @@
                             <input type="text" id="form-checkout__cardNumber" class="form-control" autocomplete="off" required>
                         </div>
                         <div class="row g-2">
-                            <div class="col-4">
-                                <label class="form-label">Mes</label>
-                                <input type="text" id="form-checkout__cardExpirationMonth" class="form-control" placeholder="MM" required>
-                            </div>
-                            <div class="col-4">
-                                <label class="form-label">Ano</label>
-                                <input type="text" id="form-checkout__cardExpirationYear" class="form-control" placeholder="AA" required>
+                            <div class="col-8">
+                                <label class="form-label">Validade</label>
+                                <input type="text" id="form-checkout__expirationDate" class="form-control" placeholder="MM/YY" required>
                             </div>
                             <div class="col-4">
                                 <label class="form-label">CVV</label>
@@ -100,6 +96,17 @@
                                 <input type="text" id="form-checkout__identificationNumber" class="form-control" required>
                             </div>
                         </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-6">
+                                <label class="form-label">Banco emissor</label>
+                                <select id="form-checkout__issuer" class="form-select" required></select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Parcelas</label>
+                                <select id="form-checkout__installments" class="form-select" required></select>
+                            </div>
+                        </div>
+                        <input type="hidden" id="form-checkout__cardholderEmail" value="">
 
                         <input type="hidden" name="mp_card_token" id="mp_card_token" value="<?= esc(old('mp_card_token')) ?>">
                         <input type="hidden" name="mp_payment_method_id" id="mp_payment_method_id" value="<?= esc(old('mp_payment_method_id')) ?>">
@@ -131,6 +138,9 @@
             const tokenInput = document.getElementById('mp_card_token');
             const methodInput = document.getElementById('mp_payment_method_id');
             const last4Input = document.getElementById('mp_last_four_digits');
+            const cardNumberInput = document.getElementById('form-checkout__cardNumber');
+            const emailInput = form.querySelector('input[name="email"]');
+            const cardholderEmailInput = document.getElementById('form-checkout__cardholderEmail');
 
             const showError = (message) => {
                 errorEl.classList.remove('d-none');
@@ -138,78 +148,62 @@
             };
 
             const onlyDigits = (value) => (value || '').replace(/\D+/g, '');
-            const normalizeYear = (value) => {
-                const digits = onlyDigits(value);
-                if (digits.length === 4) return digits.slice(2);
-                return digits;
-            };
 
-            form.addEventListener('submit', async (event) => {
-                if (tokenInput.value) return;
-                event.preventDefault();
-                errorEl.classList.add('d-none');
+            if (emailInput && cardholderEmailInput) {
+                const syncEmail = () => { cardholderEmailInput.value = emailInput.value.trim(); };
+                emailInput.addEventListener('input', syncEmail);
+                syncEmail();
+            }
 
-                const cardNumber = onlyDigits(document.getElementById('form-checkout__cardNumber').value);
-                const cardExpirationMonth = onlyDigits(document.getElementById('form-checkout__cardExpirationMonth').value).padStart(2, '0');
-                const cardExpirationYear = normalizeYear(document.getElementById('form-checkout__cardExpirationYear').value);
-                const securityCode = onlyDigits(document.getElementById('form-checkout__securityCode').value);
-                const cardholderName = document.getElementById('form-checkout__cardholderName').value.trim();
-                const identificationType = document.getElementById('form-checkout__identificationType').value;
-                const identificationNumber = onlyDigits(document.getElementById('form-checkout__identificationNumber').value);
-                const email = form.querySelector('input[name="email"]').value.trim();
+            const cardForm = mp.cardForm({
+                amount: '1',
+                autoMount: true,
+                form: {
+                    id: 'signup-form',
+                    cardNumber: { id: 'form-checkout__cardNumber', placeholder: '5031 4332 1540 6351' },
+                    expirationDate: { id: 'form-checkout__expirationDate', placeholder: 'MM/YY' },
+                    securityCode: { id: 'form-checkout__securityCode', placeholder: '123' },
+                    cardholderName: { id: 'form-checkout__cardholderName', placeholder: 'Nome no cartao' },
+                    issuer: { id: 'form-checkout__issuer' },
+                    installments: { id: 'form-checkout__installments' },
+                    identificationType: { id: 'form-checkout__identificationType' },
+                    identificationNumber: { id: 'form-checkout__identificationNumber', placeholder: 'CPF do titular' },
+                    cardholderEmail: { id: 'form-checkout__cardholderEmail' },
+                },
+                callbacks: {
+                    onFormMounted: (error) => {
+                        if (error) {
+                            showError('Falha ao iniciar formulario de cartao.');
+                        }
+                    },
+                    onSubmit: (event) => {
+                        event.preventDefault();
+                        errorEl.classList.add('d-none');
+                        const data = cardForm.getCardFormData();
+                        if (!data.token) {
+                            showError('Nao foi possivel gerar token do cartao.');
+                            return;
+                        }
 
-                if (cardExpirationYear.length !== 2) {
-                    showError('Informe o ano com 2 digitos (ex.: 30) ou 4 digitos (ex.: 2030).');
-                    return;
-                }
+                        tokenInput.value = data.token;
+                        methodInput.value = data.paymentMethodId || 'desconhecido';
+                        last4Input.value = onlyDigits(cardNumberInput?.value || '').slice(-4);
+                        form.submit();
+                    },
+                    onError: (error) => {
+                        const mpMessage =
+                            error?.message ||
+                            error?.cause?.[0]?.description ||
+                            error?.cause?.[0]?.message ||
+                            'Cartao invalido ou nao autorizado para teste.';
+                        showError(mpMessage);
+                    },
+                },
+            });
 
-                if (!cardNumber || cardNumber.length < 13) {
-                    showError('Numero de cartao invalido.');
-                    return;
-                }
-
-                try {
-                    const tokenResponse = await mp.createCardToken({
-                        cardNumber,
-                        cardholderName,
-                        cardExpirationMonth,
-                        cardExpirationYear,
-                        securityCode,
-                        identificationType,
-                        identificationNumber,
-                    });
-
-                    if (!tokenResponse || !tokenResponse.id) {
-                        showError('Nao foi possivel validar o cartao.');
-                        return;
-                    }
-
-                    let paymentMethodId = '';
-                    const bin = cardNumber.substring(0, 8);
-                    try {
-                        const methods = await mp.getPaymentMethods({ bin });
-                        paymentMethodId = methods?.results?.[0]?.id || '';
-                    } catch (e) {
-                        paymentMethodId = '';
-                    }
-
-                    tokenInput.value = tokenResponse.id;
-                    methodInput.value = paymentMethodId || 'desconhecido';
-                    last4Input.value = tokenResponse.last_four_digits || cardNumber.slice(-4);
-
-                    if (!email) {
-                        showError('Informe um email valido para continuar.');
-                        return;
-                    }
-
-                    form.submit();
-                } catch (error) {
-                    const mpMessage =
-                        error?.message ||
-                        error?.cause?.[0]?.description ||
-                        error?.cause?.[0]?.message ||
-                        'Cartao invalido ou nao autorizado para teste.';
-                    showError(mpMessage);
+            form.addEventListener('submit', () => {
+                if (!tokenInput.value && cardholderEmailInput) {
+                    cardholderEmailInput.value = emailInput?.value?.trim() || '';
                 }
             });
         })();

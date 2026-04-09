@@ -69,7 +69,7 @@ class AuthController extends BaseController
             'password_confirm' => 'required|matches[password]',
             'mp_card_token' => 'required',
             'mp_payment_method_id' => 'required',
-            'mp_last_four_digits' => 'required|exact_length[4]',
+            'mp_last_four_digits' => 'permit_empty|exact_length[4]',
         ];
 
         if (! $this->validate($rules)) {
@@ -107,7 +107,7 @@ class AuthController extends BaseController
                 'email' => $email,
                 'senha_hash' => $senhaHash,
                 'cartao_token' => $this->request->getPost('mp_card_token'),
-                'cartao_ultimos4' => $this->request->getPost('mp_last_four_digits'),
+                'cartao_ultimos4' => $this->request->getPost('mp_last_four_digits') ?: '0000',
                 'cartao_bandeira' => $this->request->getPost('mp_payment_method_id'),
             ], true);
 
