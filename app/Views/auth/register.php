@@ -6,6 +6,27 @@
     <title>Cadastro</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/css/tabler.min.css">
     <style>
+        /* page-center centraliza na vertical e corta o topo quando o formulário é mais alto que a tela */
+        html {
+            height: auto;
+            min-height: 100%;
+        }
+        body.d-flex.flex-column {
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .page.page-center.register-page {
+            flex: 1 0 auto;
+            justify-content: flex-start;
+            align-items: center;
+            width: 100%;
+            padding-top: 1rem;
+            padding-bottom: 2rem;
+            box-sizing: border-box;
+        }
         .domain-addon { min-width: 160px; }
         .mp-container {
             height: 40px;
@@ -31,8 +52,8 @@
         || (($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey ?? ''))
         || ($isPaidPlan && ($gateway ?? '') === 'mercado_pago');
     ?>
-    <div class="page page-center">
-        <div class="container container-tight py-4">
+    <div class="page page-center register-page">
+        <div class="container container-tight py-4 w-100">
             <div class="card card-md">
                 <div class="card-body">
                     <h2 class="h2 text-center mb-2">Criar conta</h2>
