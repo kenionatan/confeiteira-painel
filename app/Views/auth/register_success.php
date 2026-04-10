@@ -15,16 +15,32 @@
                         <span class="avatar avatar-lg bg-success-lt text-success">✓</span>
                     </div>
                     <h1 class="h2 mb-3">Cadastro recebido</h1>
-                    <p class="text-secondary mb-0">
-                        Obrigado por se cadastrar no plano Free. Em breve voce recebera um e-mail
-                        <?php if (! empty($email)): ?>
-                            em <strong><?= esc($email) ?></strong>
-                        <?php endif; ?>
-                        com informacoes sobre o seu dominio e os proximos passos.
-                    </p>
-                    <p class="text-secondary mt-3 mb-0">
-                        Nossa equipe pode entrar em contato pelo WhatsApp informado para alinhar detalhes, se necessario.
-                    </p>
+                    <?php
+                    $slug = strtolower((string) ($planSlug ?? 'free'));
+                    $isPaid = in_array($slug, ['basico', 'pro'], true);
+                    ?>
+                    <?php if ($isPaid): ?>
+                        <p class="text-secondary mb-0">
+                            Sua conta no plano <strong><?= esc($planNome ?? '') ?></strong> foi criada e a primeira mensalidade foi cobrada com sucesso.
+                            <?php if (! empty($email)): ?>
+                                As proximas orientacoes serao enviadas para <strong><?= esc($email) ?></strong>.
+                            <?php endif; ?>
+                        </p>
+                        <p class="text-secondary mt-3 mb-0">
+                            Use seu e-mail e senha para <a href="/painel/login">entrar no painel</a> quando o acesso do cliente estiver liberado.
+                        </p>
+                    <?php else: ?>
+                        <p class="text-secondary mb-0">
+                            Obrigado por se cadastrar no plano <?= esc($planNome ?? 'Free') ?>. Em breve voce recebera um e-mail
+                            <?php if (! empty($email)): ?>
+                                em <strong><?= esc($email) ?></strong>
+                            <?php endif; ?>
+                            com informacoes sobre o seu dominio e os proximos passos.
+                        </p>
+                        <p class="text-secondary mt-3 mb-0">
+                            Nossa equipe pode entrar em contato pelo WhatsApp informado para alinhar detalhes, se necessario.
+                        </p>
+                    <?php endif; ?>
                     <div class="mt-4">
                         <a href="/" class="btn btn-primary w-100">Voltar ao inicio</a>
                     </div>

@@ -17,11 +17,33 @@
     </style>
 </head>
 <body class="d-flex flex-column">
+    <?php
+    $planSlug = $planSlug ?? 'free';
+    $selectedPlan = $selectedPlan ?? null;
+    $isPaidPlan = ! empty($isPaidPlan);
+    /** Price ID (price_...) configurado no .env para o plano atual — só aviso, não bloqueia o botão. */
+    $priceIdsConfigured = ! empty($isPaidStripe);
+    /** Plano pago + Stripe com pk: usa fluxo pagamento (pagamento + confirmar), mesmo sem Price ID (o servidor avisa). */
+    $useStripePaidFlow = $isPaidPlan && ($gateway ?? '') === 'stripe' && ! empty($stripePublicKey ?? '');
+    $planNome = $selectedPlan['nome'] ?? ucfirst($planSlug);
+    $valorMensal = isset($selectedPlan['valor_mensal']) ? number_format((float) $selectedPlan['valor_mensal'], 2, ',', '.') : '0,00';
+    $submitDisabled = (($gateway ?? '') === 'stripe' && empty($stripePublicKey ?? ''))
+        || (($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey ?? ''))
+        || ($isPaidPlan && ($gateway ?? '') === 'mercado_pago');
+    ?>
     <div class="page page-center">
         <div class="container container-tight py-4">
             <div class="card card-md">
                 <div class="card-body">
-                    <h2 class="h2 text-center mb-4">Criar conta</h2>
+                    <h2 class="h2 text-center mb-2">Criar conta</h2>
+                    <p class="text-center text-secondary mb-4">
+                        Plano: <span class="badge bg-primary-lt"><?= esc($planNome) ?></span>
+                        <?php if ($isPaidPlan): ?>
+                            &mdash; <strong>R$ <?= esc($valorMensal) ?></strong> / mes
+                        <?php else: ?>
+                            &mdash; <strong>Gratis</strong>
+                        <?php endif; ?>
+                    </p>
 
                     <?php if (session()->getFlashdata('errors')): ?>
                         <div class="alert alert-danger">
@@ -42,9 +64,22 @@
                             Configure a chave publica do Stripe para habilitar a captura de cartao.
                         </div>
                     <?php endif; ?>
+                    <?php if ($isPaidPlan && ($gateway ?? '') === 'mercado_pago'): ?>
+                        <div class="alert alert-warning">
+                            Cadastro com planos pagos no momento so esta disponivel com o gateway Stripe. Escolha o plano Free ou altere <code>subscriptions.gateway</code> no .env.
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($isPaidPlan && ($gateway ?? '') === 'stripe' && ! $priceIdsConfigured): ?>
+                        <div class="alert alert-warning">
+                            Defina no .env o Price ID deste plano: <code>subscriptions.stripePriceBasico</code> ou <code>subscriptions.stripePricePro</code> (valor <code>price_...</code> do Stripe). Sem isso o pagamento nao inicia.
+                        </div>
+                    <?php endif; ?>
 
-                    <form method="post" action="/painel/cadastro" id="signup-form">
+                    <form method="post" action="/painel/cadastro" id="signup-form" novalidate>
                         <?= csrf_field() ?>
+                        <input type="hidden" name="plan_slug" value="<?= esc($planSlug) ?>">
+                        <input type="hidden" name="stripe_subscription_id" id="stripe_subscription_id" value="">
+
                         <div class="mb-3">
                             <label class="form-label">Dominio</label>
                             <div class="input-group">
@@ -75,8 +110,12 @@
 
                         <?php if (($gateway ?? 'mercado_pago') === 'mercado_pago'): ?>
                             <hr class="my-4">
-                            <h3 class="h4 mb-3">Cartao para validacao do plano Free</h3>
-                            <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. O cadastro do cartao e obrigatorio para concluir.</p>
+                            <h3 class="h4 mb-3">Cartao</h3>
+                            <?php if ($isPaidPlan): ?>
+                                <p class="text-secondary mb-3">Plano pago: use o cadastro com Stripe (veja aviso acima).</p>
+                            <?php else: ?>
+                                <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. O cadastro do cartao e obrigatorio para concluir.</p>
+                            <?php endif; ?>
 
                             <div class="mb-3">
                                 <label class="form-label">Numero do cartao</label>
@@ -122,8 +161,14 @@
                             <input type="hidden" id="form-checkout__cardholderEmail" value="">
                         <?php else: ?>
                             <hr class="my-4">
-                            <h3 class="h4 mb-3">Cartao para validacao do plano Free</h3>
-                            <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. Vamos apenas validar e armazenar o metodo de pagamento.</p>
+                            <h3 class="h4 mb-3">Cartao</h3>
+                            <?php if ($isPaidPlan && $useStripePaidFlow): ?>
+                                <p class="text-secondary mb-3">
+                                    Sera cobrada a <strong>primeira mensalidade</strong> (R$ <?= esc($valorMensal) ?>) agora. Renovacoes automaticas no cartao cadastrado.
+                                </p>
+                            <?php else: ?>
+                                <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. Vamos apenas validar e armazenar o metodo de pagamento.</p>
+                            <?php endif; ?>
                             <div class="mb-3">
                                 <label class="form-label">Cartao</label>
                                 <div id="stripe-card-element" class="mp-container"></div>
@@ -137,7 +182,9 @@
                         <div class="alert alert-danger mt-3 d-none" id="card-error"></div>
 
                         <div class="form-footer">
-                            <button type="submit" class="btn btn-primary w-100" <?= ((($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey)) || (($gateway ?? '') === 'stripe' && empty($stripePublicKey ?? ''))) ? 'disabled' : '' ?>>Cadastrar</button>
+                            <button type="submit" class="btn btn-primary w-100" id="signup-submit" <?= $submitDisabled ? 'disabled' : '' ?>>
+                                <?= $isPaidPlan ? 'Cadastrar e pagar' : 'Cadastrar' ?>
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -169,8 +216,6 @@
                 errorEl.classList.remove('d-none');
                 errorEl.textContent = message;
             };
-
-            const onlyDigits = (value) => (value || '').replace(/\D+/g, '');
 
             if (emailInput && cardholderEmailInput) {
                 const syncEmail = () => { cardholderEmailInput.value = emailInput.value.trim(); };
@@ -246,7 +291,9 @@
             const tokenInput = document.getElementById('mp_card_token');
             const methodInput = document.getElementById('mp_payment_method_id');
             const last4Input = document.getElementById('mp_last_four_digits');
+            const subIdInput = document.getElementById('stripe_subscription_id');
             const emailInput = form?.querySelector('input[name="email"]');
+            const useStripePaidFlow = <?= $useStripePaidFlow ? 'true' : 'false' ?>;
 
             if (!form || !publicKey) return;
 
@@ -270,7 +317,99 @@
                 errorEl.classList.add('d-none');
             });
 
+            const paidFlow = async () => {
+                errorEl.classList.add('d-none');
+                const billingName = (form.querySelector('input[name="name"]')?.value || '').trim();
+                const billingEmail = (emailInput?.value || '').trim();
+
+                const pmResult = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card,
+                    billing_details: {
+                        name: billingName,
+                        email: billingEmail,
+                    },
+                });
+
+                if (pmResult.error || !pmResult.paymentMethod) {
+                    showError(pmResult.error?.message || 'Nao foi possivel validar o cartao no Stripe.');
+                    return;
+                }
+
+                tokenInput.value = pmResult.paymentMethod.id;
+                methodInput.value = pmResult.paymentMethod.card?.brand || 'stripe';
+                last4Input.value = pmResult.paymentMethod.card?.last4 || '0000';
+
+                const fd = new FormData(form);
+                const btn = document.getElementById('signup-submit');
+                if (btn) btn.disabled = true;
+
+                try {
+                    const prep = await fetch('/painel/cadastro/pagamento', {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        body: fd,
+                    });
+                    let prepJson = {};
+                    try {
+                        prepJson = await prep.json();
+                    } catch (_) {}
+
+                    if (!prep.ok) {
+                        showError(prepJson.error || 'Falha ao iniciar pagamento.');
+                        if (btn) btn.disabled = false;
+                        return;
+                    }
+
+                    if (prepJson.clientSecret) {
+                        const pay = await stripe.confirmCardPayment(prepJson.clientSecret);
+                        if (pay.error) {
+                            showError(pay.error.message || 'Pagamento nao autorizado.');
+                            if (btn) btn.disabled = false;
+                            return;
+                        }
+                    }
+
+                    const subId = prepJson.subscriptionId;
+                    if (!subId) {
+                        showError('Resposta invalida do servidor.');
+                        if (btn) btn.disabled = false;
+                        return;
+                    }
+
+                    subIdInput.value = subId;
+                    fd.set('stripe_subscription_id', subId);
+
+                    const fin = await fetch('/painel/cadastro/confirmar', {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        body: fd,
+                    });
+                    let finJson = {};
+                    try {
+                        finJson = await fin.json();
+                    } catch (_) {}
+
+                    if (!fin.ok || !finJson.ok || !finJson.redirect) {
+                        showError(finJson.error || 'Nao foi possivel finalizar o cadastro.');
+                        if (btn) btn.disabled = false;
+                        return;
+                    }
+
+                    window.location.href = finJson.redirect;
+                } catch (e) {
+                    showError('Erro de rede. Tente novamente.');
+                    if (btn) btn.disabled = false;
+                }
+            };
+
             form.addEventListener('submit', async (event) => {
+                if (useStripePaidFlow) {
+                    event.preventDefault();
+                    await paidFlow();
+                    return;
+                }
+
                 if (tokenInput.value) return;
                 event.preventDefault();
                 errorEl.classList.add('d-none');
@@ -302,4 +441,3 @@
     <?php endif; ?>
 </body>
 </html>
-

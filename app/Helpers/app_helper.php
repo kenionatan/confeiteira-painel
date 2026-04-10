@@ -54,6 +54,10 @@ if (! function_exists('is_admin')) {
 }
 
 if (! function_exists('app_settings')) {
+    /**
+     * Nome do app e cor de destaque para o layout. Se a tabela app_settings não existir
+     * (ou houver falha de leitura), usa defaults — não é obrigatório ter essa tabela no banco.
+     */
     function app_settings(): array
     {
         static $cached = null;
@@ -61,13 +65,19 @@ if (! function_exists('app_settings')) {
             return $cached;
         }
 
-        $model = new AppSettingModel();
-        $settings = $model->first();
-        $cached = $settings ?: [
+        $defaults = [
             'app_name'            => 'Confeiteira App',
             'title_color_enabled' => 0,
             'title_color'         => '#8b5cf6',
         ];
+
+        try {
+            $model = new AppSettingModel();
+            $settings = $model->first();
+            $cached = $settings ?: $defaults;
+        } catch (\Throwable) {
+            $cached = $defaults;
+        }
 
         return $cached;
     }

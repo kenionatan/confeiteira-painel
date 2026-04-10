@@ -9,9 +9,19 @@
     $appName = $settings['app_name'] ?? 'Confeiteira App';
     $buttonColor = $settings['title_color'] ?? '#8b5cf6';
     $request = service('request');
-    $secondSegment = strtolower((string) $request->getUri()->getSegment(2));
-    $isActive = static function (string $segment) use ($secondSegment): string {
-        return strtolower(trim($segment)) === $secondSegment ? 'active' : '';
+    $path = trim((string) $request->getUri()->getPath(), '/');
+    $parts = $path === '' ? [] : explode('/', $path);
+    $painelIdx = array_search('painel', $parts, true);
+    $afterPainel = ($painelIdx !== false) ? strtolower((string) ($parts[$painelIdx + 1] ?? '')) : '';
+    $isActive = static function (string $name) use ($afterPainel): string {
+        if ($name === 'dashboard') {
+            return $afterPainel === '' ? 'active' : '';
+        }
+        if ($name === 'clientes') {
+            return str_starts_with($afterPainel, 'clientes') ? 'active' : '';
+        }
+
+        return '';
     };
     ?>
     <title><?= esc($title ?? 'Dashboard') ?> - <?= esc($appName) ?></title>
@@ -67,6 +77,11 @@
                 <div class="navbar">
                     <div class="container-xl">
                         <ul class="navbar-nav">
+                            <li class="nav-item">
+                                <a class="nav-link <?= $isActive('dashboard') ?>" href="/painel">
+                                    <span class="nav-link-title">Dashboard</span>
+                                </a>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link <?= $isActive('clientes') ?>" href="/painel/clientes">
                                     <span class="nav-link-title">Clientes</span>
@@ -133,6 +148,7 @@
     <?php endif; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/js/tabler.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
     <?= $this->renderSection('scripts') ?>
     <script>
         (() => {

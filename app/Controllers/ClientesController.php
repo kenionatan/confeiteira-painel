@@ -33,27 +33,68 @@ class ClientesController extends BaseController
         ]);
     }
 
-    public function salvar()
+    public function detalhes(int $id)
     {
-        $rules = [
-            'nome' => 'required|min_length[3]',
-            'telefone' => 'permit_empty|max_length[30]',
-            'endereco' => 'permit_empty|max_length[255]',
-        ];
-
-        if (! $this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        if (! $this->request->isAJAX()) {
+            return redirect()->to('/painel/clientes');
         }
 
-        $model = new ClienteModel();
-        $model->insert([
-            'nome' => $this->request->getPost('nome'),
-            'telefone' => $this->request->getPost('telefone'),
-            'endereco' => $this->request->getPost('endereco'),
-            'observacoes' => $this->request->getPost('observacoes'),
-        ]);
+        $clienteModel = new ClienteModel();
+        $cliente = $clienteModel->find($id);
+        if (! $cliente) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Cliente nao encontrado.']);
+        }
 
-        return redirect()->to('/painel/clientes')->with('success', 'Cliente cadastrado com sucesso.');
+        unset($cliente['senha_hash']);
+
+        $db = \Config\Database::connect();
+        $subs = $db->table('subscriptions')
+            ->select('subscriptions.*, plans.slug AS plan_slug, plans.nome AS plan_nome, plans.valor_mensal AS plan_valor_mensal, plans.descricao AS plan_descricao')
+            ->join('plans', 'plans.id = subscriptions.plan_id')
+            ->where('subscriptions.cliente_id', $id)
+            ->orderBy('subscriptions.id', 'DESC')
+            ->get()
+            ->getResultArray();
+
+        $subIds = array_column($subs, 'id');
+        $payments = [];
+        if ($subIds !== []) {
+            $payments = $db->table('subscription_payments')
+                ->whereIn('subscription_id', $subIds)
+                ->orderBy('paid_at', 'DESC')
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getResultArray();
+        }
+
+        $subById = [];
+        foreach ($subs as $s) {
+            $subById[(int) $s['id']] = $s;
+        }
+
+        foreach ($payments as &$p) {
+            $sid = (int) ($p['subscription_id'] ?? 0);
+            $p['plan_nome'] = $subById[$sid]['plan_nome'] ?? '';
+        }
+        unset($p);
+
+        $current = null;
+        foreach ($subs as $s) {
+            if (in_array($s['status'], ['active', 'trial'], true)) {
+                $current = $s;
+                break;
+            }
+        }
+        if ($current === null && $subs !== []) {
+            $current = $subs[0];
+        }
+
+        return $this->response->setJSON([
+            'cliente'        => $cliente,
+            'subscription'   => $current,
+            'subscriptions' => $subs,
+            'payments'      => $payments,
+        ]);
     }
 
     private function buildListData(bool $pagerLinksToAjax): array
@@ -63,8 +104,9 @@ class ClientesController extends BaseController
         if ($q !== '') {
             $model->groupStart()
                 ->like('nome', $q)
-                ->orLike('telefone', $q)
-                ->orLike('endereco', $q)
+                ->orLike('email', $q)
+                ->orLike('whatsapp', $q)
+                ->orLike('dominio', $q)
                 ->groupEnd();
         }
 

@@ -14,18 +14,22 @@ class Subscriptions extends BaseConfig
     public string $stripeSuccessUrl = '/painel/login?stripe=success';
     public string $stripeCancelUrl = '/?stripe=cancel';
 
+    /** Price IDs Stripe (price_...) para assinatura no cadastro integrado. */
+    public string $stripePriceBasico = '';
+    public string $stripePricePro = '';
+
     public string $offerEndsAt = '2026-12-31T23:59:59-03:00';
 
     /**
-     * URLs de checkout hospedado (Mercado Pago).
-     * Trocar pelos links reais de producao.
+     * Destinos do botao Assinar na landing (/assinar/:plano).
+     * Planos pagos apontam para o cadastro no painel com o mesmo fluxo do Free + cobranca Stripe.
      *
      * @var array<string, string>
      */
     public array $checkoutLinks = [
         'free'   => '/painel/cadastro?plano=free',
-        'basico' => 'price_basico_placeholder',
-        'pro'    => 'price_pro_placeholder',
+        'basico' => '/painel/cadastro?plano=basico',
+        'pro'    => '/painel/cadastro?plano=pro',
     ];
 
     public function __construct()
@@ -40,10 +44,22 @@ class Subscriptions extends BaseConfig
         $this->stripeSuccessUrl = (string) env('subscriptions.stripeSuccessUrl', $this->stripeSuccessUrl);
         $this->stripeCancelUrl = (string) env('subscriptions.stripeCancelUrl', $this->stripeCancelUrl);
 
+        $this->stripePriceBasico = (string) env('subscriptions.stripePriceBasico', $this->stripePriceBasico);
+        $this->stripePricePro = (string) env('subscriptions.stripePricePro', $this->stripePricePro);
+
         $this->checkoutLinks = [
             'free'   => '/painel/cadastro?plano=free',
-            'basico' => (string) env('subscriptions.stripePriceBasico', $this->checkoutLinks['basico']),
-            'pro'    => (string) env('subscriptions.stripePricePro', $this->checkoutLinks['pro']),
+            'basico' => '/painel/cadastro?plano=basico',
+            'pro'    => '/painel/cadastro?plano=pro',
         ];
+    }
+
+    public function stripePriceIdForPlanSlug(string $slug): string
+    {
+        return match ($slug) {
+            'basico' => $this->stripePriceBasico,
+            'pro'    => $this->stripePricePro,
+            default  => '',
+        };
     }
 }
