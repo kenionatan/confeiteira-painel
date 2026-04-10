@@ -40,10 +40,14 @@ class TenantProvisioningService
             $jobId = (int) $jobModel->insert($data, true);
         }
 
+        $plannedDbName = (string) $data['requested_db_name'];
         $clienteModel->update((int) $cliente['id'], [
             'tenant_status' => 'pending',
             'tenant_error_message' => null,
             'tenant_ready_at' => null,
+            // Nomes planejados no nosso lado (não exigem o servidor remoto); espelham o job.
+            'tenant_db_name' => substr($plannedDbName, 0, 80),
+            'tenant_db_user' => substr($subdomain, 0, 80),
         ]);
 
         $this->dispatchToAutomation($jobId);
@@ -284,9 +288,14 @@ class TenantProvisioningService
             $detail = $code === 0
                 ? ('Dispatch falhou (rede ou timeout)' . ($result['curl_error'] !== '' ? ': ' . $result['curl_error'] : ''))
                 : ('Dispatch HTTP ' . $code . ' — ' . substr($bodySnippet, 0, 200));
+            $err = substr($detail, 0, 255);
             $jobModel->update((int) $job['id'], [
                 'status' => 'failed',
-                'last_error' => substr($detail, 0, 255),
+                'last_error' => $err,
+            ]);
+            (new ClienteModel())->update((int) $cliente['id'], [
+                'tenant_status' => 'failed',
+                'tenant_error_message' => $err,
             ]);
 
             return;
