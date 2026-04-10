@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Models\ClienteModel;
-use App\Models\PlanModel;
-use App\Models\SubscriptionModel;
 use App\Models\TenantProvisionJobModel;
 
 class TenantProvisioningService
@@ -131,6 +129,10 @@ class TenantProvisioningService
         }
 
         $clienteModel->update($clienteId, $clienteUpdate);
+
+        if ($status === 'ready' && config('Provisioning')->dispatchUrl !== '') {
+            $this->pushSubscriptionAfterTenantReady($clienteId);
+        }
     }
 
     /**
@@ -356,6 +358,28 @@ class TenantProvisioningService
         }
 
         (new ClienteModel())->update($clienteId, $clienteUpdate);
+
+        if (config('Provisioning')->dispatchUrl !== '') {
+            $this->pushSubscriptionAfterTenantReady($clienteId);
+        }
+    }
+
+    /**
+     * Após tenant ready, espelha a linha de assinatura do painel no DB do portal (corrige JSON inicial "free" ou script que falhou antes do sync).
+     */
+    private function pushSubscriptionAfterTenantReady(int $clienteId): void
+    {
+        try {
+            $r = $this->dispatchSubscriptionSync($clienteId);
+            if (! $r['success']) {
+                log_message(
+                    'error',
+                    "dispatchSubscriptionSync após tenant ready (cliente_id={$clienteId}): {$r['message']} http={$r['http_code']}"
+                );
+            }
+        } catch (\Throwable $e) {
+            log_message('error', "dispatchSubscriptionSync após tenant ready (cliente_id={$clienteId}): " . $e->getMessage());
+        }
     }
 
     /**
@@ -408,10 +432,20 @@ class TenantProvisioningService
      */
     private function buildTenantSubscriptionPayload(int $clienteId): array
     {
-        $subscriptionModel = new SubscriptionModel();
-        $sub = $subscriptionModel->where('cliente_id', $clienteId)->orderBy('id', 'DESC')->first();
+        // JOIN em uma query: evita inconsistência e garante slug/nome alinhados ao plan_id da assinatura.
+        $row = \Config\Database::connect()
+            ->table('subscriptions')
+            ->select('subscriptions.status, subscriptions.gateway, subscriptions.gateway_subscription_id, subscriptions.started_at, subscriptions.next_billing_at, subscriptions.ends_at, plans.slug AS plan_slug, plans.nome AS plan_nome')
+            ->join('plans', 'plans.id = subscriptions.plan_id', 'left')
+            ->where('subscriptions.cliente_id', $clienteId)
+            ->orderBy('subscriptions.id', 'DESC')
+            ->limit(1)
+            ->get()
+            ->getRowArray();
 
-        if (! $sub) {
+        if (! $row) {
+            log_message('warning', "buildTenantSubscriptionPayload: sem subscription para cliente_id={$clienteId}; enviando plano free ao provisionador.");
+
             return [
                 'plan_slug' => 'free',
                 'plan_name' => 'Free',
@@ -424,10 +458,8 @@ class TenantProvisioningService
             ];
         }
 
-        $planModel = new PlanModel();
-        $plan = $planModel->find((int) $sub['plan_id']);
-        $slug = $plan ? trim((string) ($plan['slug'] ?? '')) : '';
-        $name = $plan ? trim((string) ($plan['nome'] ?? '')) : '';
+        $slug = trim((string) ($row['plan_slug'] ?? ''));
+        $name = trim((string) ($row['plan_nome'] ?? ''));
         if ($slug === '') {
             $slug = 'free';
         }
@@ -435,7 +467,7 @@ class TenantProvisioningService
             $name = $slug;
         }
 
-        $gatewaySubId = $sub['gateway_subscription_id'] ?? null;
+        $gatewaySubId = $row['gateway_subscription_id'] ?? null;
         $gatewaySubId = ($gatewaySubId !== null && $gatewaySubId !== '')
             ? (string) $gatewaySubId
             : null;
@@ -443,12 +475,12 @@ class TenantProvisioningService
         return [
             'plan_slug' => $slug,
             'plan_name' => $name,
-            'status' => (string) ($sub['status'] ?? 'trial'),
-            'gateway' => (string) ($sub['gateway'] ?? 'none'),
+            'status' => (string) ($row['status'] ?? 'trial'),
+            'gateway' => (string) ($row['gateway'] ?? 'none'),
             'gateway_subscription_id' => $gatewaySubId,
-            'started_at' => $this->nullableProvisioningDateTime($sub['started_at'] ?? null),
-            'next_billing_at' => $this->nullableProvisioningDateTime($sub['next_billing_at'] ?? null),
-            'ends_at' => $this->nullableProvisioningDateTime($sub['ends_at'] ?? null),
+            'started_at' => $this->nullableProvisioningDateTime($row['started_at'] ?? null),
+            'next_billing_at' => $this->nullableProvisioningDateTime($row['next_billing_at'] ?? null),
+            'ends_at' => $this->nullableProvisioningDateTime($row['ends_at'] ?? null),
         ];
     }
 

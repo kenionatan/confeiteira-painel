@@ -223,14 +223,6 @@ class AuthController extends BaseController
                 'next_billing_at' => null,
                 'ends_at' => null,
             ]);
-
-            (new TenantProvisioningService())->queueForCliente([
-                'id' => $clienteId,
-                'dominio' => $dominioCompleto,
-                'nome' => (string) $this->request->getPost('name'),
-                'email' => $email,
-                'whatsapp' => (string) $this->request->getPost('whatsapp'),
-            ]);
         } catch (DatabaseException $e) {
             $db->transRollback();
             return redirect()->back()->withInput()->with('errors', ['Falha ao concluir cadastro. Tente novamente.']);
@@ -240,6 +232,22 @@ class AuthController extends BaseController
 
         if (! $db->transStatus()) {
             return redirect()->back()->withInput()->with('errors', ['Falha ao concluir cadastro. Tente novamente.']);
+        }
+
+        try {
+            (new TenantProvisioningService())->queueForCliente([
+                'id' => $clienteId,
+                'dominio' => $dominioCompleto,
+                'nome' => (string) $this->request->getPost('name'),
+                'email' => $email,
+                'whatsapp' => (string) $this->request->getPost('whatsapp'),
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'queueForCliente após cadastro (store): ' . $e->getMessage());
+
+            return redirect()->back()->withInput()->with('errors', [
+                'Cadastro salvo, mas não foi possível iniciar o ambiente do portal. Entre em contato com o suporte.',
+            ]);
         }
 
         return redirect()->to('/painel/cadastro/obrigado')
@@ -570,14 +578,6 @@ class AuthController extends BaseController
                     'next_billing_at' => $periodEnd ? date('Y-m-d H:i:s', $periodEnd) : null,
                     'ends_at' => null,
                 ]);
-
-                (new TenantProvisioningService())->queueForCliente([
-                    'id' => $clienteId,
-                    'dominio' => $dominioCompleto,
-                    'nome' => (string) $this->request->getPost('name'),
-                    'email' => $email,
-                    'whatsapp' => (string) $this->request->getPost('whatsapp'),
-                ]);
             } catch (DatabaseException $e) {
                 $db->transRollback();
                 return $this->jsonError('Falha ao salvar cadastro. Entre em contato com o suporte.', 500);
@@ -586,6 +586,23 @@ class AuthController extends BaseController
             $db->transComplete();
             if (! $db->transStatus()) {
                 return $this->jsonError('Falha ao salvar cadastro.', 500);
+            }
+
+            try {
+                (new TenantProvisioningService())->queueForCliente([
+                    'id' => $clienteId,
+                    'dominio' => $dominioCompleto,
+                    'nome' => (string) $this->request->getPost('name'),
+                    'email' => $email,
+                    'whatsapp' => (string) $this->request->getPost('whatsapp'),
+                ]);
+            } catch (\Throwable $e) {
+                log_message('error', 'queueForCliente após cadastro (paymentConfirm): ' . $e->getMessage());
+
+                return $this->jsonError(
+                    'Cadastro salvo, mas falha ao iniciar o ambiente do portal. Use o comando tenants:dispatch-pending ou contate o suporte.',
+                    500
+                );
             }
 
             session()->setFlashdata('register_email', $email);
