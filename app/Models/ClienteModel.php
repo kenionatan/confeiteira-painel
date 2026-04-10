@@ -14,6 +14,7 @@ class ClienteModel extends Model
         'nome',
         'whatsapp',
         'email',
+        'stripe_customer_id',
         'senha_hash',
         'cartao_token',
         'cartao_ultimos4',

@@ -12,6 +12,7 @@ $routes->group('painel', static function ($routes) {
     $routes->get('login', 'AuthController::login');
     $routes->post('login', 'AuthController::authenticate');
     $routes->get('cadastro', 'AuthController::register');
+    $routes->get('cadastro/obrigado', 'AuthController::registerSuccess');
     $routes->post('cadastro', 'AuthController::store');
     $routes->get('logout', 'AuthController::logout');
 });

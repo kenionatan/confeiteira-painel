@@ -32,9 +32,14 @@
                             </ul>
                         </div>
                     <?php endif; ?>
-                    <?php if (empty($mercadoPagoPublicKey)): ?>
+                    <?php if (($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey)): ?>
                         <div class="alert alert-warning">
                             Configure a chave publica do Mercado Pago para habilitar o cadastro com cartao.
+                        </div>
+                    <?php endif; ?>
+                    <?php if (($gateway ?? '') === 'stripe' && empty($stripePublicKey ?? '')): ?>
+                        <div class="alert alert-warning">
+                            Configure a chave publica do Stripe para habilitar a captura de cartao.
                         </div>
                     <?php endif; ?>
 
@@ -68,52 +73,63 @@
                             <input type="password" name="password_confirm" class="form-control" required>
                         </div>
 
-                        <hr class="my-4">
-                        <h3 class="h4 mb-3">Cartao para validacao do plano Free</h3>
-                        <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. O cadastro do cartao e obrigatorio para concluir.</p>
+                        <?php if (($gateway ?? 'mercado_pago') === 'mercado_pago'): ?>
+                            <hr class="my-4">
+                            <h3 class="h4 mb-3">Cartao para validacao do plano Free</h3>
+                            <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. O cadastro do cartao e obrigatorio para concluir.</p>
 
-                        <div class="mb-3">
-                            <label class="form-label">Numero do cartao</label>
-                            <div id="form-checkout__cardNumber" class="mp-container"></div>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-8">
-                                <label class="form-label">Validade</label>
-                                <div id="form-checkout__expirationDate" class="mp-container"></div>
+                            <div class="mb-3">
+                                <label class="form-label">Numero do cartao</label>
+                                <div id="form-checkout__cardNumber" class="mp-container"></div>
                             </div>
-                            <div class="col-4">
-                                <label class="form-label">CVV</label>
-                                <div id="form-checkout__securityCode" class="mp-container"></div>
+                            <div class="row g-2">
+                                <div class="col-8">
+                                    <label class="form-label">Validade</label>
+                                    <div id="form-checkout__expirationDate" class="mp-container"></div>
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">CVV</label>
+                                    <div id="form-checkout__securityCode" class="mp-container"></div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="mb-3 mt-2">
-                            <label class="form-label">Nome no cartao</label>
-                            <input type="text" id="form-checkout__cardholderName" class="form-control" required>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <label class="form-label">Tipo documento</label>
-                                <select id="form-checkout__identificationType" class="form-select" required>
-                                    <option value="CPF">CPF</option>
-                                    <option value="CNPJ">CNPJ</option>
-                                </select>
+                            <div class="mb-3 mt-2">
+                                <label class="form-label">Nome no cartao</label>
+                                <input type="text" id="form-checkout__cardholderName" class="form-control" required>
                             </div>
-                            <div class="col-6">
-                                <label class="form-label">Documento</label>
-                                <input type="text" id="form-checkout__identificationNumber" class="form-control" required>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label">Tipo documento</label>
+                                    <select id="form-checkout__identificationType" class="form-select" required>
+                                        <option value="CPF">CPF</option>
+                                        <option value="CNPJ">CNPJ</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Documento</label>
+                                    <input type="text" id="form-checkout__identificationNumber" class="form-control" required>
+                                </div>
                             </div>
-                        </div>
-                        <div class="row g-2 mt-1">
-                            <div class="col-6">
-                                <label class="form-label">Banco emissor</label>
-                                <select id="form-checkout__issuer" class="form-select" required></select>
+                            <div class="row g-2 mt-1">
+                                <div class="col-6">
+                                    <label class="form-label">Banco emissor</label>
+                                    <select id="form-checkout__issuer" class="form-select" required></select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Parcelas</label>
+                                    <select id="form-checkout__installments" class="form-select" required></select>
+                                </div>
                             </div>
-                            <div class="col-6">
-                                <label class="form-label">Parcelas</label>
-                                <select id="form-checkout__installments" class="form-select" required></select>
+                            <input type="hidden" id="form-checkout__cardholderEmail" value="">
+                        <?php else: ?>
+                            <hr class="my-4">
+                            <h3 class="h4 mb-3">Cartao para validacao do plano Free</h3>
+                            <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. Vamos apenas validar e armazenar o metodo de pagamento.</p>
+                            <div class="mb-3">
+                                <label class="form-label">Cartao</label>
+                                <div id="stripe-card-element" class="mp-container"></div>
                             </div>
-                        </div>
-                        <input type="hidden" id="form-checkout__cardholderEmail" value="">
+                            <div class="small text-secondary">Dados protegidos pelo Stripe Elements.</div>
+                        <?php endif; ?>
 
                         <input type="hidden" name="mp_card_token" id="mp_card_token" value="<?= esc(old('mp_card_token')) ?>">
                         <input type="hidden" name="mp_payment_method_id" id="mp_payment_method_id" value="<?= esc(old('mp_payment_method_id')) ?>">
@@ -121,7 +137,7 @@
                         <div class="alert alert-danger mt-3 d-none" id="card-error"></div>
 
                         <div class="form-footer">
-                            <button type="submit" class="btn btn-primary w-100" <?= empty($mercadoPagoPublicKey) ? 'disabled' : '' ?>>Cadastrar</button>
+                            <button type="submit" class="btn btn-primary w-100" <?= ((($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey)) || (($gateway ?? '') === 'stripe' && empty($stripePublicKey ?? ''))) ? 'disabled' : '' ?>>Cadastrar</button>
                         </div>
                     </form>
                 </div>
@@ -131,6 +147,7 @@
             </div>
         </div>
     </div>
+    <?php if (($gateway ?? 'mercado_pago') === 'mercado_pago'): ?>
     <script src="https://sdk.mercadopago.com/js/v2"></script>
     <script>
         (() => {
@@ -219,6 +236,70 @@
             });
         })();
     </script>
+    <?php elseif (($gateway ?? '') === 'stripe'): ?>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        (() => {
+            const publicKey = '<?= esc($stripePublicKey ?? '') ?>';
+            const form = document.getElementById('signup-form');
+            const errorEl = document.getElementById('card-error');
+            const tokenInput = document.getElementById('mp_card_token');
+            const methodInput = document.getElementById('mp_payment_method_id');
+            const last4Input = document.getElementById('mp_last_four_digits');
+            const emailInput = form?.querySelector('input[name="email"]');
+
+            if (!form || !publicKey) return;
+
+            const stripe = Stripe(publicKey);
+            const elements = stripe.elements();
+            const card = elements.create('card', {
+                hidePostalCode: true,
+            });
+            card.mount('#stripe-card-element');
+
+            const showError = (message) => {
+                errorEl.classList.remove('d-none');
+                errorEl.textContent = message;
+            };
+
+            card.on('change', (event) => {
+                if (event.error) {
+                    showError(event.error.message || 'Dados de cartao invalidos.');
+                    return;
+                }
+                errorEl.classList.add('d-none');
+            });
+
+            form.addEventListener('submit', async (event) => {
+                if (tokenInput.value) return;
+                event.preventDefault();
+                errorEl.classList.add('d-none');
+
+                const billingName = (form.querySelector('input[name="name"]')?.value || '').trim();
+                const billingEmail = (emailInput?.value || '').trim();
+
+                const result = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card,
+                    billing_details: {
+                        name: billingName,
+                        email: billingEmail,
+                    },
+                });
+
+                if (result.error || !result.paymentMethod) {
+                    showError(result.error?.message || 'Nao foi possivel validar o cartao no Stripe.');
+                    return;
+                }
+
+                tokenInput.value = result.paymentMethod.id;
+                methodInput.value = result.paymentMethod.card?.brand || 'stripe';
+                last4Input.value = result.paymentMethod.card?.last4 || '0000';
+                form.submit();
+            });
+        })();
+    </script>
+    <?php endif; ?>
 </body>
 </html>
 
