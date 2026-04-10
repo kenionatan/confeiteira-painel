@@ -83,6 +83,7 @@ class AuthController extends BaseController
             'isPaidPlan'        => $isPaidPlan,
             'isPaidStripe'      => $paidStripeReady,
             'stripePriceId'     => $stripePriceId,
+            'stripePixEnabled'  => $subscriptions->stripePixEnabled,
         ]);
     }
 
@@ -267,7 +268,8 @@ class AuthController extends BaseController
             'email' => 'required|valid_email',
             'password' => 'required|min_length[6]',
             'password_confirm' => 'required|matches[password]',
-            'mp_card_token' => 'required',
+            'payment_option' => 'permit_empty|in_list[card,pix]',
+            'mp_card_token' => 'permit_empty|max_length[120]',
             'mp_payment_method_id' => 'permit_empty|max_length[80]',
             'mp_last_four_digits' => 'permit_empty|exact_length[4]',
         ];
@@ -300,10 +302,32 @@ class AuthController extends BaseController
             return $this->jsonError('E-mail já cadastrado.', 422);
         }
 
-        $pmId = (string) $this->request->getPost('mp_card_token');
+        $paymentOption = strtolower(trim((string) $this->request->getPost('payment_option'))) ?: 'card';
+        if (! in_array($paymentOption, ['card', 'pix'], true)) {
+            return $this->jsonError('Forma de pagamento inválida.', 422);
+        }
+        if ($paymentOption === 'pix' && ! $subscriptions->stripePixEnabled) {
+            return $this->jsonError('Pagamento via PIX não está disponível.', 422);
+        }
+
+        $pmId = trim((string) $this->request->getPost('mp_card_token'));
+        if ($paymentOption === 'card' && $pmId === '') {
+            return $this->jsonError('Informe os dados do cartão ou escolha PIX.', 422);
+        }
 
         try {
             $stripe = new StripeClient($subscriptions->stripeSecretKey);
+
+            if ($paymentOption === 'pix') {
+                return $this->stripePaymentPreparePix(
+                    $stripe,
+                    $priceId,
+                    $planSlug,
+                    $dominioCompleto,
+                    $email
+                );
+            }
+
             $pm = $stripe->paymentMethods->retrieve($pmId, []);
             if (($pm->type ?? '') !== 'card') {
                 return $this->jsonError('Método de pagamento inválido.', 422);
@@ -340,6 +364,7 @@ class AuthController extends BaseController
                 'expand' => ['latest_invoice.payment_intent'],
             ]);
 
+            $pi = null;
             for ($attempt = 0; $attempt < 8; $attempt++) {
                 [, , $pi] = $this->resolveStripeInvoiceAndPaymentIntent($stripe, $subscription, $pmId);
                 $subscription = $stripe->subscriptions->retrieve($subscription->id, [
@@ -349,6 +374,7 @@ class AuthController extends BaseController
                     return $this->response->setJSON([
                         'clientSecret' => null,
                         'subscriptionId' => $subscription->id,
+                        'flow' => 'card',
                     ]);
                 }
                 if (is_object($pi)) {
@@ -375,7 +401,7 @@ class AuthController extends BaseController
                         'payment_method' => $pmId,
                     ]);
                 } catch (\Stripe\Exception\CardException $e) {
-                    return $this->jsonError('Cartao recusado: ' . $e->getMessage(), 402);
+                    return $this->jsonError('Cartão recusado: ' . $e->getMessage(), 402);
                 } catch (\Throwable) {
                     // Ex.: authentication_required — segue para client_secret no navegador (3DS)
                 }
@@ -388,6 +414,7 @@ class AuthController extends BaseController
                 return $this->response->setJSON([
                     'clientSecret' => null,
                     'subscriptionId' => $subscription->id,
+                    'flow' => 'card',
                 ]);
             }
 
@@ -401,12 +428,14 @@ class AuthController extends BaseController
                     return $this->response->setJSON([
                         'clientSecret' => $pi->client_secret,
                         'subscriptionId' => $subscription->id,
+                        'flow' => 'card',
                     ]);
                 }
                 if (in_array($pi->status ?? '', ['processing', 'succeeded'], true)) {
                     return $this->response->setJSON([
                         'clientSecret' => null,
                         'subscriptionId' => $subscription->id,
+                        'flow' => 'card',
                     ]);
                 }
             }
@@ -446,13 +475,27 @@ class AuthController extends BaseController
             'email' => 'required|valid_email',
             'password' => 'required|min_length[6]',
             'password_confirm' => 'required|matches[password]',
-            'mp_card_token' => 'required',
+            'payment_option' => 'permit_empty|in_list[card,pix]',
+            'mp_card_token' => 'permit_empty|max_length[120]',
             'mp_payment_method_id' => 'permit_empty|max_length[80]',
             'mp_last_four_digits' => 'permit_empty|exact_length[4]',
         ];
 
         if (! $this->validate($rules)) {
             return $this->jsonError('Dados inválidos.', 422, $this->validator->getErrors());
+        }
+
+        $paymentOption = strtolower(trim((string) $this->request->getPost('payment_option'))) ?: 'card';
+        if (! in_array($paymentOption, ['card', 'pix'], true)) {
+            return $this->jsonError('Forma de pagamento inválida.', 422);
+        }
+        if ($paymentOption === 'pix' && ! $subscriptions->stripePixEnabled) {
+            return $this->jsonError('Pagamento via PIX não está disponível.', 422);
+        }
+
+        $postedPm = trim((string) $this->request->getPost('mp_card_token'));
+        if ($paymentOption === 'card' && $postedPm === '') {
+            return $this->jsonError('Token de cartão ausente.', 422);
         }
 
         $planSlug = strtolower(trim((string) $this->request->getPost('plan_slug')));
@@ -482,7 +525,8 @@ class AuthController extends BaseController
 
         try {
             $stripe = new StripeClient($subscriptions->stripeSecretKey);
-            $stripeSub = $stripe->subscriptions->retrieve($subId, ['expand' => ['items.data.price']]);
+            $expandSub = ['items.data.price', 'default_payment_method'];
+            $stripeSub = $stripe->subscriptions->retrieve($subId, ['expand' => $expandSub]);
 
             for ($poll = 0; $poll < 10; $poll++) {
                 if (in_array($stripeSub->status ?? '', ['active', 'trialing'], true)) {
@@ -492,7 +536,7 @@ class AuthController extends BaseController
                     break;
                 }
                 usleep(400000);
-                $stripeSub = $stripe->subscriptions->retrieve($subId, ['expand' => ['items.data.price']]);
+                $stripeSub = $stripe->subscriptions->retrieve($subId, ['expand' => $expandSub]);
             }
 
             $meta = $stripeSub->metadata ?? null;
@@ -527,14 +571,27 @@ class AuthController extends BaseController
                 return $this->jsonError('E-mail do cliente Stripe não confere.', 403);
             }
 
-            $cardToken = (string) $this->request->getPost('mp_card_token');
-            $cardBrand = (string) ($this->request->getPost('mp_payment_method_id') ?: 'stripe');
-            $cardLast4 = (string) ($this->request->getPost('mp_last_four_digits') ?: '0000');
+            if ($paymentOption === 'pix') {
+                $defPm = $stripeSub->default_payment_method ?? null;
+                if (is_string($defPm) && $defPm !== '') {
+                    $defPm = $stripe->paymentMethods->retrieve($defPm);
+                }
+                if (! is_object($defPm) || ($defPm->type ?? '') !== 'pix') {
+                    return $this->jsonError('PIX não vinculado à assinatura. Conclua o pagamento no app do banco e tente novamente.', 422);
+                }
+                $cardToken = (string) ($defPm->id ?? '');
+                $cardBrand = 'pix';
+                $cardLast4 = '0000';
+            } else {
+                $cardToken = $postedPm;
+                $cardBrand = (string) ($this->request->getPost('mp_payment_method_id') ?: 'stripe');
+                $cardLast4 = (string) ($this->request->getPost('mp_last_four_digits') ?: '0000');
 
-            $pm = $stripe->paymentMethods->retrieve($cardToken, []);
-            if (($pm->type ?? '') === 'card') {
-                $cardBrand = (string) ($pm->card->brand ?? $cardBrand);
-                $cardLast4 = (string) ($pm->card->last4 ?? $cardLast4);
+                $pm = $stripe->paymentMethods->retrieve($cardToken, []);
+                if (($pm->type ?? '') === 'card') {
+                    $cardBrand = (string) ($pm->card->brand ?? $cardBrand);
+                    $cardLast4 = (string) ($pm->card->last4 ?? $cardLast4);
+                }
             }
 
             $dbStatus = $this->mapStripeSubscriptionStatus($stripeStatus);
@@ -617,6 +674,132 @@ class AuthController extends BaseController
     {
         session()->destroy();
         return redirect()->to('/painel/login')->with('success', 'Logout realizado.');
+    }
+
+    /**
+     * Cria assinatura com cobrança via PIX (Pix Automático) e devolve client_secret do PaymentIntent quando necessário.
+     */
+    private function stripePaymentPreparePix(
+        StripeClient $stripe,
+        string $priceId,
+        string $planSlug,
+        string $dominioCompleto,
+        string $email
+    ) {
+        try {
+            $paymentSettings = $this->stripeSubscriptionPixPaymentSettings($stripe, $priceId);
+        } catch (\InvalidArgumentException $e) {
+            return $this->jsonError($e->getMessage(), 422);
+        }
+
+        $customer = $stripe->customers->create([
+            'email' => $email,
+            'name' => (string) $this->request->getPost('name'),
+            'metadata' => [
+                'dominio' => $dominioCompleto,
+                'plan_slug' => $planSlug,
+            ],
+        ]);
+
+        $subscription = $stripe->subscriptions->create([
+            'customer' => $customer->id,
+            'items' => [['price' => $priceId]],
+            'payment_behavior' => 'default_incomplete',
+            'payment_settings' => $paymentSettings,
+            'metadata' => [
+                'signup_email' => $email,
+                'signup_dominio' => $dominioCompleto,
+                'plan_slug' => $planSlug,
+            ],
+            'expand' => ['latest_invoice.payment_intent'],
+        ]);
+
+        $subscription = $stripe->subscriptions->retrieve($subscription->id, [
+            'expand' => ['latest_invoice.payment_intent'],
+        ]);
+
+        $pi = null;
+        for ($attempt = 0; $attempt < 8; $attempt++) {
+            [, , $pi] = $this->resolveStripeInvoiceAndPaymentIntent($stripe, $subscription, null);
+            $subscription = $stripe->subscriptions->retrieve($subscription->id, [
+                'expand' => ['latest_invoice.payment_intent'],
+            ]);
+            if (in_array($subscription->status ?? '', ['active', 'trialing'], true)) {
+                return $this->response->setJSON([
+                    'clientSecret' => null,
+                    'subscriptionId' => $subscription->id,
+                    'flow' => 'pix',
+                ]);
+            }
+            if (is_object($pi)) {
+                break;
+            }
+            usleep(400000);
+        }
+
+        if (! is_object($pi)) {
+            $hint = ENVIRONMENT !== 'production'
+                ? ' Confira no Stripe: PIX em assinaturas habilitado, preço em BRL e modo de teste.'
+                : '';
+
+            return $this->jsonError('Não foi possível obter o pagamento PIX da primeira fatura no Stripe.' . $hint, 422);
+        }
+
+        if (($pi->status ?? '') === 'requires_payment_method') {
+            return $this->jsonError('Não foi possível iniciar o PIX. Tente novamente ou use cartão.', 402);
+        }
+
+        if (! empty($pi->client_secret) && in_array($pi->status ?? '', ['requires_action', 'requires_confirmation'], true)) {
+            return $this->response->setJSON([
+                'clientSecret' => $pi->client_secret,
+                'subscriptionId' => $subscription->id,
+                'flow' => 'pix',
+            ]);
+        }
+
+        if (in_array($pi->status ?? '', ['processing', 'succeeded'], true)) {
+            return $this->response->setJSON([
+                'clientSecret' => null,
+                'subscriptionId' => $subscription->id,
+                'flow' => 'pix',
+            ]);
+        }
+
+        $detail = ENVIRONMENT !== 'production' ? ' (PaymentIntent: ' . ($pi->status ?? '?') . ')' : '';
+
+        return $this->jsonError('Não foi possível iniciar o pagamento PIX.' . $detail, 422);
+    }
+
+    /**
+     * payment_settings para assinatura com PIX (mandate Pix Automático).
+     *
+     * @return array<string, mixed>
+     */
+    private function stripeSubscriptionPixPaymentSettings(StripeClient $stripe, string $priceId): array
+    {
+        $price = $stripe->prices->retrieve($priceId, []);
+        if (strtolower((string) ($price->currency ?? '')) !== 'brl') {
+            throw new \InvalidArgumentException('PIX exige preço em BRL no Stripe.');
+        }
+        $unit = (int) ($price->unit_amount ?? 0);
+        if ($unit < 1) {
+            throw new \InvalidArgumentException('Preço Stripe sem valor válido para mandate PIX.');
+        }
+        $mandateAmount = max((int) ceil($unit * 1.2), 100);
+
+        return [
+            'payment_method_types' => ['pix'],
+            'save_default_payment_method' => 'on_subscription',
+            'payment_method_options' => [
+                'pix' => [
+                    'mandate_options' => [
+                        'amount' => $mandateAmount,
+                        'amount_type' => 'maximum',
+                        'payment_schedule' => 'monthly',
+                    ],
+                ],
+            ],
+        ];
     }
 
     /**

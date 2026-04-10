@@ -18,6 +18,9 @@ class Subscriptions extends BaseConfig
     public string $stripePriceBasico = '';
     public string $stripePricePro = '';
 
+    /** Habilita PIX (Pix Automático) no cadastro de planos pagos com Stripe (preço em BRL). */
+    public bool $stripePixEnabled = true;
+
     public string $offerEndsAt = '2026-12-31T23:59:59-03:00';
 
     /**
@@ -46,6 +49,10 @@ class Subscriptions extends BaseConfig
 
         $this->stripePriceBasico = (string) env('subscriptions.stripePriceBasico', $this->stripePriceBasico);
         $this->stripePricePro = (string) env('subscriptions.stripePricePro', $this->stripePricePro);
+        $this->stripePixEnabled = filter_var(
+            env('subscriptions.stripePixEnabled', $this->stripePixEnabled ? 'true' : 'false'),
+            FILTER_VALIDATE_BOOLEAN
+        );
 
         $this->checkoutLinks = [
             'free'   => '/painel/cadastro?plano=free',

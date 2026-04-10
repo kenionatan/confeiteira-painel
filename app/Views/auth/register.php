@@ -30,6 +30,8 @@
     $submitDisabled = (($gateway ?? '') === 'stripe' && empty($stripePublicKey ?? ''))
         || (($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey ?? ''))
         || ($isPaidPlan && ($gateway ?? '') === 'mercado_pago');
+    $stripePixEnabled = ! empty($stripePixEnabled);
+    $showStripePixChoice = $useStripePaidFlow && $stripePixEnabled;
     ?>
     <div class="page page-center">
         <div class="container container-tight py-4">
@@ -161,19 +163,40 @@
                             <input type="hidden" id="form-checkout__cardholderEmail" value="">
                         <?php else: ?>
                             <hr class="my-4">
-                            <h3 class="h4 mb-3">Cartão</h3>
+                            <h3 class="h4 mb-3">Pagamento</h3>
                             <?php if ($isPaidPlan && $useStripePaidFlow): ?>
                                 <p class="text-secondary mb-3">
-                                    Será cobrada a <strong>primeira mensalidade</strong> (R$ <?= esc($valorMensal) ?>) agora. Renovações automáticas no cartão cadastrado.
+                                    Será cobrada a <strong>primeira mensalidade</strong> (R$ <?= esc($valorMensal) ?>) agora. Renovações automáticas no método escolhido (cartão ou PIX).
                                 </p>
                             <?php else: ?>
                                 <p class="text-secondary mb-3">Nenhuma cobrança será feita agora. Vamos apenas validar e armazenar o método de pagamento.</p>
                             <?php endif; ?>
-                            <div class="mb-3">
+
+                            <input type="hidden" name="payment_option" id="payment_option" value="card">
+                            <?php if ($showStripePixChoice): ?>
+                                <div class="mb-3">
+                                    <label class="form-label">Forma de pagamento</label>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <label class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="stripe_pay_method" id="stripe-pay-card" value="card" checked>
+                                            <span class="form-check-label">Cartão</span>
+                                        </label>
+                                        <label class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="stripe_pay_method" id="stripe-pay-pix" value="pix">
+                                            <span class="form-check-label">PIX</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info d-none mb-3" id="stripe-pix-hint" role="status">
+                                    Você verá o QR Code ou o código copia e cola. No app do banco, autorize o <strong>PIX Automático</strong> para as próximas cobranças. Ao voltar a esta página, concluímos o cadastro.
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="mb-3" id="stripe-card-section">
                                 <label class="form-label">Cartão</label>
                                 <div id="stripe-card-element" class="mp-container"></div>
+                                <div class="small text-secondary mt-1">Dados protegidos pelo Stripe Elements.</div>
                             </div>
-                            <div class="small text-secondary">Dados protegidos pelo Stripe Elements.</div>
                         <?php endif; ?>
 
                         <input type="hidden" name="mp_card_token" id="mp_card_token" value="<?= esc(old('mp_card_token')) ?>">
@@ -292,91 +315,147 @@
             const methodInput = document.getElementById('mp_payment_method_id');
             const last4Input = document.getElementById('mp_last_four_digits');
             const subIdInput = document.getElementById('stripe_subscription_id');
+            const paymentOptionInput = document.getElementById('payment_option');
             const emailInput = form?.querySelector('input[name="email"]');
             const useStripePaidFlow = <?= $useStripePaidFlow ? 'true' : 'false' ?>;
+            const stripePixOffered = <?= $showStripePixChoice ? 'true' : 'false' ?>;
 
             if (!form || !publicKey) return;
 
             const stripe = Stripe(publicKey);
-            const elements = stripe.elements();
-            const card = elements.create('card', {
-                hidePostalCode: true,
-            });
-            card.mount('#stripe-card-element');
 
             const showError = (message) => {
                 errorEl.classList.remove('d-none');
                 errorEl.textContent = message;
             };
 
-            card.on('change', (event) => {
-                if (event.error) {
-                    showError(event.error.message || 'Dados de cartão inválidos.');
-                    return;
+            const syncPaymentOptionFromUi = () => {
+                const pix = document.getElementById('stripe-pay-pix');
+                if (paymentOptionInput && pix) {
+                    paymentOptionInput.value = pix.checked ? 'pix' : 'card';
                 }
-                errorEl.classList.add('d-none');
-            });
+            };
 
-            const paidFlow = async () => {
-                errorEl.classList.add('d-none');
-                const billingName = (form.querySelector('input[name="name"]')?.value || '').trim();
-                const billingEmail = (emailInput?.value || '').trim();
+            const isPixSelected = () =>
+                stripePixOffered && document.getElementById('stripe-pay-pix')?.checked;
 
-                const pmResult = await stripe.createPaymentMethod({
-                    type: 'card',
-                    card,
-                    billing_details: {
-                        name: billingName,
-                        email: billingEmail,
-                    },
+            const persistFormForPixResume = (fd) => {
+                const plain = {};
+                fd.forEach((v, k) => {
+                    plain[k] = typeof v === 'string' ? v : '';
                 });
+                sessionStorage.setItem('stripe_pix_form', JSON.stringify(plain));
+            };
 
-                if (pmResult.error || !pmResult.paymentMethod) {
-                    showError(pmResult.error?.message || 'Não foi possível validar o cartão no Stripe.');
-                    return;
+            /** @returns {Promise<'redirect'|boolean>} false = seguir fluxo normal; true = erro no retorno PIX (cartão ainda deve montar); 'redirect' = sair */
+            const tryResumePixReturn = async () => {
+                const url = new URL(window.location.href);
+                if (url.searchParams.get('stripe_pix_resume') !== '1') return false;
+
+                const subId = sessionStorage.getItem('stripe_pix_sub_id');
+                const raw = sessionStorage.getItem('stripe_pix_form');
+                if (!subId || !raw) {
+                    showError('Não foi possível retomar o cadastro PIX. Preencha o formulário e inicie de novo.');
+                    url.searchParams.delete('stripe_pix_resume');
+                    url.searchParams.delete('payment_intent');
+                    url.searchParams.delete('payment_intent_client_secret');
+                    url.searchParams.delete('redirect_status');
+                    window.history.replaceState({}, '', url.pathname + (url.search || '') + url.hash);
+                    return true;
                 }
 
-                tokenInput.value = pmResult.paymentMethod.id;
-                methodInput.value = pmResult.paymentMethod.card?.brand || 'stripe';
-                last4Input.value = pmResult.paymentMethod.card?.last4 || '0000';
+                let fields;
+                try {
+                    fields = JSON.parse(raw);
+                } catch (_) {
+                    showError('Dados do cadastro PIX inválidos. Tente novamente.');
+                    return true;
+                }
 
-                const fd = new FormData(form);
+                const fd = new FormData();
+                Object.keys(fields).forEach((k) => fd.append(k, fields[k]));
+                fd.set('stripe_subscription_id', subId);
+                fd.set('payment_option', 'pix');
+
                 const btn = document.getElementById('signup-submit');
                 if (btn) btn.disabled = true;
 
                 try {
-                    const prep = await fetch('/painel/cadastro/pagamento', {
+                    const fin = await fetch('/painel/cadastro/confirmar', {
                         method: 'POST',
                         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                         body: fd,
                     });
-                    let prepJson = {};
+                    let finJson = {};
                     try {
-                        prepJson = await prep.json();
+                        finJson = await fin.json();
                     } catch (_) {}
 
-                    if (!prep.ok) {
-                        showError(prepJson.error || 'Falha ao iniciar pagamento.');
-                        if (btn) btn.disabled = false;
+                    if (fin.ok && finJson.ok && finJson.redirect) {
+                        sessionStorage.removeItem('stripe_pix_sub_id');
+                        sessionStorage.removeItem('stripe_pix_form');
+                        url.searchParams.delete('stripe_pix_resume');
+                        url.searchParams.delete('payment_intent');
+                        url.searchParams.delete('payment_intent_client_secret');
+                        url.searchParams.delete('redirect_status');
+                        window.history.replaceState({}, '', url.pathname + (url.search || '') + url.hash);
+                        window.location.href = finJson.redirect;
+                        return 'redirect';
+                    }
+
+                    showError(finJson.error || 'Assinatura ainda não está ativa. Aguarde a confirmação do PIX e atualize a página.');
+                } catch (_) {
+                    showError('Erro de rede ao concluir cadastro.');
+                } finally {
+                    if (btn) btn.disabled = false;
+                }
+                return true;
+            };
+
+            (async () => {
+                const resume = await tryResumePixReturn();
+                if (resume === 'redirect') return;
+
+                const elements = stripe.elements();
+                const card = elements.create('card', {
+                    hidePostalCode: true,
+                });
+                card.mount('#stripe-card-element');
+
+                card.on('change', (event) => {
+                    if (event.error) {
+                        showError(event.error.message || 'Dados de cartão inválidos.');
                         return;
                     }
+                    errorEl.classList.add('d-none');
+                });
 
-                    if (prepJson.clientSecret) {
-                        const pay = await stripe.confirmCardPayment(prepJson.clientSecret);
-                        if (pay.error) {
-                            showError(pay.error.message || 'Pagamento não autorizado.');
-                            if (btn) btn.disabled = false;
-                            return;
-                        }
-                    }
+                const cardSection = document.getElementById('stripe-card-section');
+                const pixHint = document.getElementById('stripe-pix-hint');
+                const payCard = document.getElementById('stripe-pay-card');
+                const payPix = document.getElementById('stripe-pay-pix');
 
+                const updatePayMethodUi = () => {
+                    syncPaymentOptionFromUi();
+                    const pix = isPixSelected();
+                    if (cardSection) cardSection.classList.toggle('d-none', pix);
+                    if (pixHint) pixHint.classList.toggle('d-none', !pix);
+                    errorEl.classList.add('d-none');
+                };
+
+                if (stripePixOffered && payCard && payPix) {
+                    payCard.addEventListener('change', updatePayMethodUi);
+                    payPix.addEventListener('change', updatePayMethodUi);
+                    updatePayMethodUi();
+                }
+
+                const finalizeAfterPrepare = async (fd, prepJson, btn) => {
                     const subId = prepJson.subscriptionId;
                     if (!subId) {
                         showError('Resposta inválida do servidor.');
                         if (btn) btn.disabled = false;
                         return;
                     }
-
                     subIdInput.value = subId;
                     fd.set('stripe_subscription_id', subId);
 
@@ -397,45 +476,162 @@
                     }
 
                     window.location.href = finJson.redirect;
-                } catch (e) {
-                    showError('Erro de rede. Tente novamente.');
-                    if (btn) btn.disabled = false;
-                }
-            };
+                };
 
-            form.addEventListener('submit', async (event) => {
-                if (useStripePaidFlow) {
+                const paidFlow = async () => {
+                    errorEl.classList.add('d-none');
+                    syncPaymentOptionFromUi();
+                    const btn = document.getElementById('signup-submit');
+                    if (btn) btn.disabled = true;
+
+                    try {
+                        if (isPixSelected()) {
+                            tokenInput.value = '';
+                            methodInput.value = 'pix';
+                            last4Input.value = '0000';
+
+                            const fd = new FormData(form);
+                            fd.set('payment_option', 'pix');
+                            persistFormForPixResume(fd);
+
+                            const prep = await fetch('/painel/cadastro/pagamento', {
+                                method: 'POST',
+                                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                                body: fd,
+                            });
+                            let prepJson = {};
+                            try {
+                                prepJson = await prep.json();
+                            } catch (_) {}
+
+                            if (!prep.ok) {
+                                showError(prepJson.error || 'Falha ao iniciar pagamento PIX.');
+                                if (btn) btn.disabled = false;
+                                return;
+                            }
+
+                            if (!prepJson.clientSecret) {
+                                await finalizeAfterPrepare(fd, prepJson, btn);
+                                return;
+                            }
+
+                            sessionStorage.setItem('stripe_pix_sub_id', prepJson.subscriptionId);
+                            const returnUrl = new URL(window.location.href);
+                            returnUrl.searchParams.set('stripe_pix_resume', '1');
+
+                            const pixRes = await stripe.confirmPixPayment(prepJson.clientSecret, {
+                                return_url: returnUrl.toString(),
+                            });
+
+                            if (pixRes.error) {
+                                showError(pixRes.error.message || 'PIX não autorizado.');
+                                if (btn) btn.disabled = false;
+                                return;
+                            }
+
+                            if (
+                                pixRes.paymentIntent &&
+                                ['succeeded', 'processing'].includes(pixRes.paymentIntent.status)
+                            ) {
+                                await finalizeAfterPrepare(fd, prepJson, btn);
+                                return;
+                            }
+
+                            if (btn) btn.disabled = false;
+                            return;
+                        }
+
+                        const billingName = (form.querySelector('input[name="name"]')?.value || '').trim();
+                        const billingEmail = (emailInput?.value || '').trim();
+
+                        const pmResult = await stripe.createPaymentMethod({
+                            type: 'card',
+                            card,
+                            billing_details: {
+                                name: billingName,
+                                email: billingEmail,
+                            },
+                        });
+
+                        if (pmResult.error || !pmResult.paymentMethod) {
+                            showError(pmResult.error?.message || 'Não foi possível validar o cartão no Stripe.');
+                            if (btn) btn.disabled = false;
+                            return;
+                        }
+
+                        tokenInput.value = pmResult.paymentMethod.id;
+                        methodInput.value = pmResult.paymentMethod.card?.brand || 'stripe';
+                        last4Input.value = pmResult.paymentMethod.card?.last4 || '0000';
+
+                        const fd = new FormData(form);
+                        fd.set('payment_option', 'card');
+
+                        const prep = await fetch('/painel/cadastro/pagamento', {
+                            method: 'POST',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                            body: fd,
+                        });
+                        let prepJson = {};
+                        try {
+                            prepJson = await prep.json();
+                        } catch (_) {}
+
+                        if (!prep.ok) {
+                            showError(prepJson.error || 'Falha ao iniciar pagamento.');
+                            if (btn) btn.disabled = false;
+                            return;
+                        }
+
+                        if (prepJson.clientSecret) {
+                            const pay = await stripe.confirmCardPayment(prepJson.clientSecret);
+                            if (pay.error) {
+                                showError(pay.error.message || 'Pagamento não autorizado.');
+                                if (btn) btn.disabled = false;
+                                return;
+                            }
+                        }
+
+                        await finalizeAfterPrepare(fd, prepJson, btn);
+                    } catch (e) {
+                        showError('Erro de rede. Tente novamente.');
+                        if (btn) btn.disabled = false;
+                    }
+                };
+
+                form.addEventListener('submit', async (event) => {
+                    if (useStripePaidFlow) {
+                        event.preventDefault();
+                        await paidFlow();
+                        return;
+                    }
+
+                    if (tokenInput.value) return;
                     event.preventDefault();
-                    await paidFlow();
-                    return;
-                }
+                    errorEl.classList.add('d-none');
 
-                if (tokenInput.value) return;
-                event.preventDefault();
-                errorEl.classList.add('d-none');
+                    const billingName = (form.querySelector('input[name="name"]')?.value || '').trim();
+                    const billingEmail = (emailInput?.value || '').trim();
 
-                const billingName = (form.querySelector('input[name="name"]')?.value || '').trim();
-                const billingEmail = (emailInput?.value || '').trim();
+                    const result = await stripe.createPaymentMethod({
+                        type: 'card',
+                        card,
+                        billing_details: {
+                            name: billingName,
+                            email: billingEmail,
+                        },
+                    });
 
-                const result = await stripe.createPaymentMethod({
-                    type: 'card',
-                    card,
-                    billing_details: {
-                        name: billingName,
-                        email: billingEmail,
-                    },
+                    if (result.error || !result.paymentMethod) {
+                        showError(result.error?.message || 'Não foi possível validar o cartão no Stripe.');
+                        return;
+                    }
+
+                    tokenInput.value = result.paymentMethod.id;
+                    methodInput.value = result.paymentMethod.card?.brand || 'stripe';
+                    last4Input.value = result.paymentMethod.card?.last4 || '0000';
+                    form.submit();
                 });
-
-                if (result.error || !result.paymentMethod) {
-                    showError(result.error?.message || 'Não foi possível validar o cartão no Stripe.');
-                    return;
-                }
-
-                tokenInput.value = result.paymentMethod.id;
-                methodInput.value = result.paymentMethod.card?.brand || 'stripe';
-                last4Input.value = result.paymentMethod.card?.last4 || '0000';
-                form.submit();
-            });
+            })();
         })();
     </script>
     <?php endif; ?>
