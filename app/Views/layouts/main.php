@@ -170,7 +170,7 @@
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                         body: formData
                     });
-                    if (!response.ok) throw new Error('Tema nao salvo');
+                    if (!response.ok) throw new Error('Tema não salvo');
                 } catch (error) {
                     document.documentElement.setAttribute('data-theme', '<?= esc($theme) ?>');
                     input.value = '<?= esc($theme) ?>';

@@ -6,7 +6,7 @@ use CodeIgniter\Config\BaseConfig;
 
 class Provisioning extends BaseConfig
 {
-    /** Host central do painel/admin (nao tenant). */
+    /** Host central do painel/admin (não tenant). */
     public string $centralHost = 'portal.appdoce.top';
 
     /** Dominio raiz para tenants no wildcard, ex.: cliente.appdoce.top. */

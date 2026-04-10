@@ -42,7 +42,7 @@ class ClientesController extends BaseController
         $clienteModel = new ClienteModel();
         $cliente = $clienteModel->find($id);
         if (! $cliente) {
-            return $this->response->setStatusCode(404)->setJSON(['error' => 'Cliente nao encontrado.']);
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Cliente não encontrado.']);
         }
 
         unset($cliente['senha_hash']);

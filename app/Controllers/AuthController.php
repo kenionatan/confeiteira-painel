@@ -36,11 +36,11 @@ class AuthController extends BaseController
         $user = $userModel->where('email', $this->request->getPost('email'))->first();
 
         if (! $user || ! password_verify((string) $this->request->getPost('password'), $user['password_hash'])) {
-            return redirect()->back()->withInput()->with('errors', ['Credenciais invalidas.']);
+            return redirect()->back()->withInput()->with('errors', ['Credenciais inválidas.']);
         }
 
         if (! (int) $user['is_active']) {
-            return redirect()->back()->withInput()->with('errors', ['Usuario inativo.']);
+            return redirect()->back()->withInput()->with('errors', ['Usuário inativo.']);
         }
 
         session()->set([
@@ -96,7 +96,7 @@ class AuthController extends BaseController
 
         if ($subscriptions->gateway === 'stripe' && in_array($planSlug, ['basico', 'pro'], true)) {
             return redirect()->back()->withInput()->with('errors', [
-                'O cadastro deste plano exige confirmacao do pagamento no navegador. Verifique se o JavaScript esta habilitado e tente novamente.',
+                'O cadastro deste plano exige confirmação do pagamento no navegador. Verifique se o JavaScript está habilitado e tente novamente.',
             ]);
         }
 
@@ -105,7 +105,7 @@ class AuthController extends BaseController
 
         if ($isMercadoPago && in_array($planSlug, ['basico', 'pro'], true)) {
             return redirect()->back()->withInput()->with('errors', [
-                'Cadastro de planos pagos esta disponivel apenas com o gateway Stripe. Escolha o plano Free ou entre em contato.',
+                'Cadastro de planos pagos está disponível apenas com o gateway Stripe. Escolha o plano Free ou entre em contato.',
             ]);
         }
 
@@ -129,7 +129,7 @@ class AuthController extends BaseController
         $planModel = new PlanModel();
         $planRow = $planModel->where('slug', $planSlug)->where('ativo', 1)->first();
         if (! $planRow) {
-            return redirect()->back()->withInput()->with('errors', ['Plano invalido.']);
+            return redirect()->back()->withInput()->with('errors', ['Plano inválido.']);
         }
 
         $dominio = strtolower(trim((string) $this->request->getPost('dominio')));
@@ -140,10 +140,10 @@ class AuthController extends BaseController
         $subscriptionModel = new SubscriptionModel();
 
         if ($clienteModel->where('dominio', $dominioCompleto)->first()) {
-            return redirect()->back()->withInput()->with('errors', ['Dominio ja cadastrado.']);
+            return redirect()->back()->withInput()->with('errors', ['Domínio já cadastrado.']);
         }
         if ($clienteModel->where('email', $email)->first()) {
-            return redirect()->back()->withInput()->with('errors', ['Email ja cadastrado em cliente.']);
+            return redirect()->back()->withInput()->with('errors', ['E-mail já cadastrado em cliente.']);
         }
 
         $cardToken = (string) ($this->request->getPost('mp_card_token') ?: '');
@@ -153,14 +153,14 @@ class AuthController extends BaseController
 
         if ($isStripe) {
             if ($subscriptions->stripeSecretKey === '') {
-                return redirect()->back()->withInput()->with('errors', ['Stripe nao configurado no servidor.']);
+                return redirect()->back()->withInput()->with('errors', ['Stripe não configurado no servidor.']);
             }
 
             try {
                 $stripe = new StripeClient($subscriptions->stripeSecretKey);
                 $paymentMethod = $stripe->paymentMethods->retrieve($cardToken, []);
                 if (($paymentMethod->type ?? '') !== 'card') {
-                    return redirect()->back()->withInput()->with('errors', ['Metodo de pagamento invalido para cadastro.']);
+                    return redirect()->back()->withInput()->with('errors', ['Método de pagamento inválido para cadastro.']);
                 }
 
                 $cardBrand = (string) ($paymentMethod->card->brand ?? $cardBrand ?: 'stripe');
@@ -187,11 +187,11 @@ class AuthController extends BaseController
 
                 if (($setupIntent->status ?? '') !== 'succeeded') {
                     return redirect()->back()->withInput()->with('errors', [
-                        'Nao foi possivel confirmar o cartao. Status: ' . ($setupIntent->status ?? 'desconhecido'),
+                        'Não foi possível confirmar o cartão. Status: ' . ($setupIntent->status ?? 'desconhecido'),
                     ]);
                 }
             } catch (\Throwable $e) {
-                return redirect()->back()->withInput()->with('errors', ['Nao foi possivel validar o cartao no Stripe. Tente novamente.']);
+                return redirect()->back()->withInput()->with('errors', ['Não foi possível validar o cartão no Stripe. Tente novamente.']);
             }
         }
 
@@ -256,7 +256,7 @@ class AuthController extends BaseController
     {
         $subscriptions = config('Subscriptions');
         if ($subscriptions->gateway !== 'stripe' || $subscriptions->stripeSecretKey === '') {
-            return $this->jsonError('Stripe nao configurado.', 503);
+            return $this->jsonError('Stripe não configurado.', 503);
         }
 
         $rules = [
@@ -273,19 +273,19 @@ class AuthController extends BaseController
         ];
 
         if (! $this->validate($rules)) {
-            return $this->jsonError('Dados invalidos.', 422, $this->validator->getErrors());
+            return $this->jsonError('Dados inválidos.', 422, $this->validator->getErrors());
         }
 
         $planSlug = strtolower(trim((string) $this->request->getPost('plan_slug')));
         $priceId = $subscriptions->stripePriceIdForPlanSlug($planSlug);
         if ($priceId === '' || ! str_starts_with($priceId, 'price_')) {
-            return $this->jsonError('Price ID do Stripe nao configurado para este plano.', 422);
+            return $this->jsonError('Price ID do Stripe não configurado para este plano.', 422);
         }
 
         $planModel = new PlanModel();
         $planRow = $planModel->where('slug', $planSlug)->where('ativo', 1)->first();
         if (! $planRow) {
-            return $this->jsonError('Plano invalido.', 422);
+            return $this->jsonError('Plano inválido.', 422);
         }
 
         $dominio = strtolower(trim((string) $this->request->getPost('dominio')));
@@ -294,10 +294,10 @@ class AuthController extends BaseController
 
         $clienteModel = new ClienteModel();
         if ($clienteModel->where('dominio', $dominioCompleto)->first()) {
-            return $this->jsonError('Dominio ja cadastrado.', 422);
+            return $this->jsonError('Domínio já cadastrado.', 422);
         }
         if ($clienteModel->where('email', $email)->first()) {
-            return $this->jsonError('Email ja cadastrado.', 422);
+            return $this->jsonError('E-mail já cadastrado.', 422);
         }
 
         $pmId = (string) $this->request->getPost('mp_card_token');
@@ -306,7 +306,7 @@ class AuthController extends BaseController
             $stripe = new StripeClient($subscriptions->stripeSecretKey);
             $pm = $stripe->paymentMethods->retrieve($pmId, []);
             if (($pm->type ?? '') !== 'card') {
-                return $this->jsonError('Metodo de pagamento invalido.', 422);
+                return $this->jsonError('Método de pagamento inválido.', 422);
             }
 
             $customer = $stripe->customers->create([
@@ -362,11 +362,11 @@ class AuthController extends BaseController
                     ? ' Verifique no Stripe Dashboard se o Price e recorrente, em BRL, e ligado ao produto correto.'
                     : '';
 
-                return $this->jsonError('Nao foi possivel obter o pagamento da primeira fatura no Stripe.' . $hint, 422);
+                return $this->jsonError('Não foi possível obter o pagamento da primeira fatura no Stripe.' . $hint, 422);
             }
 
             if (($pi->status ?? '') === 'requires_payment_method') {
-                return $this->jsonError('Cartao recusado ou pagamento nao autorizado. Verifique os dados ou use outro cartao.', 402);
+                return $this->jsonError('Cartão recusado ou pagamento não autorizado. Verifique os dados ou use outro cartão.', 402);
             }
 
             if (($pi->status ?? '') === 'requires_confirmation') {
@@ -395,7 +395,7 @@ class AuthController extends BaseController
 
             if (is_object($pi)) {
                 if (($pi->status ?? '') === 'requires_payment_method') {
-                    return $this->jsonError('Cartao recusado ou pagamento nao autorizado. Verifique os dados ou use outro cartao.', 402);
+                    return $this->jsonError('Cartão recusado ou pagamento não autorizado. Verifique os dados ou use outro cartão.', 402);
                 }
                 if (! empty($pi->client_secret) && in_array($pi->status, ['requires_action', 'requires_confirmation'], true)) {
                     return $this->response->setJSON([
@@ -416,7 +416,7 @@ class AuthController extends BaseController
                 $detail = ' (PaymentIntent: ' . ($pi->status ?? '?') . ')';
             }
 
-            return $this->jsonError('Nao foi possivel iniciar o pagamento da assinatura. Tente novamente.' . $detail, 422);
+            return $this->jsonError('Não foi possível iniciar o pagamento da assinatura. Tente novamente.' . $detail, 422);
         } catch (\Throwable $e) {
             $msg = 'Falha ao criar assinatura no Stripe. Tente novamente.';
             if (ENVIRONMENT !== 'production') {
@@ -434,7 +434,7 @@ class AuthController extends BaseController
     {
         $subscriptions = config('Subscriptions');
         if ($subscriptions->gateway !== 'stripe' || $subscriptions->stripeSecretKey === '') {
-            return $this->jsonError('Stripe nao configurado.', 503);
+            return $this->jsonError('Stripe não configurado.', 503);
         }
 
         $rules = [
@@ -452,19 +452,19 @@ class AuthController extends BaseController
         ];
 
         if (! $this->validate($rules)) {
-            return $this->jsonError('Dados invalidos.', 422, $this->validator->getErrors());
+            return $this->jsonError('Dados inválidos.', 422, $this->validator->getErrors());
         }
 
         $planSlug = strtolower(trim((string) $this->request->getPost('plan_slug')));
         $expectedPriceId = $subscriptions->stripePriceIdForPlanSlug($planSlug);
         if ($expectedPriceId === '' || ! str_starts_with($expectedPriceId, 'price_')) {
-            return $this->jsonError('Configuracao de plano invalida.', 422);
+            return $this->jsonError('Configuração de plano inválida.', 422);
         }
 
         $planModel = new PlanModel();
         $planRow = $planModel->where('slug', $planSlug)->where('ativo', 1)->first();
         if (! $planRow) {
-            return $this->jsonError('Plano invalido.', 422);
+            return $this->jsonError('Plano inválido.', 422);
         }
 
         $dominio = strtolower(trim((string) $this->request->getPost('dominio')));
@@ -474,10 +474,10 @@ class AuthController extends BaseController
 
         $clienteModel = new ClienteModel();
         if ($clienteModel->where('dominio', $dominioCompleto)->first()) {
-            return $this->jsonError('Dominio ja cadastrado.', 409);
+            return $this->jsonError('Domínio já cadastrado.', 409);
         }
         if ($clienteModel->where('email', $email)->first()) {
-            return $this->jsonError('Email ja cadastrado.', 409);
+            return $this->jsonError('E-mail já cadastrado.', 409);
         }
 
         try {
@@ -499,12 +499,12 @@ class AuthController extends BaseController
             $metaEmail = is_object($meta) ? (string) ($meta->signup_email ?? '') : '';
             $metaDom = is_object($meta) ? (string) ($meta->signup_dominio ?? '') : '';
             if (strtolower($metaEmail) !== $email || $metaDom !== $dominioCompleto) {
-                return $this->jsonError('Dados da assinatura nao conferem com o cadastro.', 403);
+                return $this->jsonError('Dados da assinatura não conferem com o cadastro.', 403);
             }
 
             $stripeStatus = (string) ($stripeSub->status ?? '');
             if (! in_array($stripeStatus, ['active', 'trialing'], true)) {
-                return $this->jsonError('Assinatura ainda nao esta ativa. Conclua o pagamento ou tente novamente.', 402);
+                return $this->jsonError('Assinatura ainda não está ativa. Conclua o pagamento ou tente novamente.', 402);
             }
 
             $items = $stripeSub->items->data ?? [];
@@ -513,18 +513,18 @@ class AuthController extends BaseController
                 $priceOnSub = (string) ($items[0]->price->id ?? '');
             }
             if ($priceOnSub !== $expectedPriceId) {
-                return $this->jsonError('Plano da assinatura nao confere.', 403);
+                return $this->jsonError('Plano da assinatura não confere.', 403);
             }
 
             $customerId = is_string($stripeSub->customer ?? null) ? $stripeSub->customer : null;
             if ($customerId === null) {
-                return $this->jsonError('Cliente Stripe invalido.', 422);
+                return $this->jsonError('Cliente Stripe inválido.', 422);
             }
 
             $customer = $stripe->customers->retrieve($customerId);
             $custEmail = strtolower(trim((string) ($customer->email ?? '')));
             if ($custEmail !== $email) {
-                return $this->jsonError('Email do cliente Stripe nao confere.', 403);
+                return $this->jsonError('E-mail do cliente Stripe não confere.', 403);
             }
 
             $cardToken = (string) $this->request->getPost('mp_card_token');
@@ -598,7 +598,7 @@ class AuthController extends BaseController
                 'redirect' => site_url('/painel/cadastro/obrigado'),
             ]);
         } catch (\Throwable $e) {
-            return $this->jsonError('Nao foi possivel validar a assinatura. Tente novamente.', 502);
+            return $this->jsonError('Não foi possível validar a assinatura. Tente novamente.', 502);
         }
     }
 
@@ -652,7 +652,7 @@ class AuthController extends BaseController
             try {
                 $latest = $stripe->invoices->finalizeInvoice($latest->id, $expandInv);
             } catch (\Throwable) {
-                // Mantem fatura atual se nao for possivel finalizar
+                // Mantém fatura atual se não for possível finalizar
             }
         }
 

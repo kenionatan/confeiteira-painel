@@ -26,11 +26,11 @@ class CupomFiscalGeminiExtractor
     {
         $apiKey = $this->config->geminiApiKey;
         if ($apiKey === '') {
-            return ['ok' => false, 'text' => null, 'error' => 'API nao configurada'];
+            return ['ok' => false, 'text' => null, 'error' => 'API não configurada'];
         }
 
         if (! is_readable($absolutePath)) {
-            return ['ok' => false, 'text' => null, 'error' => 'Arquivo ilegivel'];
+            return ['ok' => false, 'text' => null, 'error' => 'Arquivo ilegível'];
         }
 
         $size = filesize($absolutePath);
@@ -40,7 +40,7 @@ class CupomFiscalGeminiExtractor
 
         $mimeType = $this->normalizeMime($mimeType);
         if ($mimeType === null) {
-            return ['ok' => false, 'text' => null, 'error' => 'Tipo nao suportado para IA'];
+            return ['ok' => false, 'text' => null, 'error' => 'Tipo não suportado para IA'];
         }
 
         $raw = file_get_contents($absolutePath);
@@ -51,17 +51,17 @@ class CupomFiscalGeminiExtractor
         $b64 = base64_encode($raw);
 
         $prompt = <<<'PROMPT'
-Voce le cupons fiscais brasileiros (supermercado, padaria, etc.).
-Extraia APENAS as linhas de PRODUTOS/SERVICOS comprados (itens com nome e valores).
-Para cada item, uma linha de texto em portugues, preferindo o formato:
+Você lê cupons fiscais brasileiros (supermercado, padaria, etc.).
+Extraia APENAS as linhas de PRODUTOS/SERVIÇOS comprados (itens com nome e valores).
+Para cada item, uma linha de texto em português, preferindo o formato:
 NOME_DO_PRODUTO | quantidade unidade | valor_total (ex.: 12,90 ou R$ 12,90)
 
 Regras:
-- Ignore cabecalho, CNPJ, endereco, CPF, nome da loja, numero do cupom, data/hora se nao forem parte do item.
-- Ignore linhas de SUBTOTAL, TOTAL, TROCO, FORMA DE PAGAMENTO, PIX, CARTAO, desconto geral (a menos que seja linha de item).
-- Se nao conseguir separar quantidade, coloque so nome e valor na linha.
-- Nao use markdown nem listas; apenas linhas de texto soltas.
-- Se a imagem nao for legivel, responda exatamente: NAO_LEGIVEL
+- Ignore cabeçalho, CNPJ, endereço, CPF, nome da loja, número do cupom, data/hora se não forem parte do item.
+- Ignore linhas de SUBTOTAL, TOTAL, TROCO, FORMA DE PAGAMENTO, PIX, CARTÃO, desconto geral (a menos que seja linha de item).
+- Se não conseguir separar quantidade, coloque só nome e valor na linha.
+- Não use markdown nem listas; apenas linhas de texto soltas.
+- Se a imagem não for legível, responda exatamente: NAO_LEGIVEL
 PROMPT;
 
         $body = [
@@ -102,7 +102,7 @@ PROMPT;
                 'http_errors' => false,
             ]);
         } catch (\Throwable $e) {
-            log_message('error', 'Cupom Gemini: requisicao falhou: ' . $e->getMessage());
+            log_message('error', 'Cupom Gemini: requisição falhou: ' . $e->getMessage());
 
             return ['ok' => false, 'text' => null, 'error' => 'Falha de rede na API'];
         }
@@ -128,7 +128,7 @@ PROMPT;
 
         $text = trim($text);
         if (stripos($text, 'NAO_LEGIVEL') !== false) {
-            return ['ok' => false, 'text' => null, 'error' => 'IA nao leu o cupom'];
+            return ['ok' => false, 'text' => null, 'error' => 'IA não leu o cupom'];
         }
 
         return ['ok' => true, 'text' => $text, 'error' => null];

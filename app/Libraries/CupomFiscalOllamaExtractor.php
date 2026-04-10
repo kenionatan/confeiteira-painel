@@ -7,7 +7,7 @@ use Config\Services;
 
 /**
  * Extrai texto de cupom fiscal (imagem) via Ollama local (/api/chat com modelo vision).
- * PDF nao e suportado pelo Ollama neste fluxo — use imagem, texto manual ou Gemini.
+ * PDF não é suportado pelo Ollama neste fluxo — use imagem, texto manual ou Gemini.
  */
 class CupomFiscalOllamaExtractor
 {
@@ -27,11 +27,11 @@ class CupomFiscalOllamaExtractor
     {
         $base = trim(rtrim((string) $this->config->ollamaBaseUrl, '/'));
         if ($base === '') {
-            return ['ok' => false, 'text' => null, 'error' => 'Ollama nao configurado'];
+            return ['ok' => false, 'text' => null, 'error' => 'Ollama não configurado'];
         }
 
         if (! is_readable($absolutePath)) {
-            return ['ok' => false, 'text' => null, 'error' => 'Arquivo ilegivel'];
+            return ['ok' => false, 'text' => null, 'error' => 'Arquivo ilegível'];
         }
 
         $size = filesize($absolutePath);
@@ -41,7 +41,7 @@ class CupomFiscalOllamaExtractor
 
         $mimeType = $this->normalizeImageMime($mimeType);
         if ($mimeType === null) {
-            return ['ok' => false, 'text' => null, 'error' => 'Ollama aqui aceita so imagem (JPG/PNG/WEBP). PDF use Gemini ou cole o texto.'];
+            return ['ok' => false, 'text' => null, 'error' => 'Ollama aqui aceita só imagem (JPG/PNG/WEBP). PDF use Gemini ou cole o texto.'];
         }
 
         $raw = file_get_contents($absolutePath);
@@ -52,17 +52,17 @@ class CupomFiscalOllamaExtractor
         $b64 = base64_encode($raw);
 
         $prompt = <<<'PROMPT'
-Voce le cupons fiscais brasileiros (supermercado, padaria, etc.).
-Extraia APENAS as linhas de PRODUTOS/SERVICOS comprados (itens com nome e valores).
-Para cada item, uma linha de texto em portugues, preferindo o formato:
+Você lê cupons fiscais brasileiros (supermercado, padaria, etc.).
+Extraia APENAS as linhas de PRODUTOS/SERVIÇOS comprados (itens com nome e valores).
+Para cada item, uma linha de texto em português, preferindo o formato:
 NOME_DO_PRODUTO | quantidade unidade | valor_total (ex.: 12,90 ou R$ 12,90)
 
 Regras:
-- Ignore cabecalho, CNPJ, endereco, CPF, nome da loja, numero do cupom, data/hora se nao forem parte do item.
-- Ignore linhas de SUBTOTAL, TOTAL, TROCO, FORMA DE PAGAMENTO, PIX, CARTAO, desconto geral (a menos que seja linha de item).
-- Se nao conseguir separar quantidade, coloque so nome e valor na linha.
-- Nao use markdown nem listas; apenas linhas de texto soltas.
-- Se a imagem nao for legivel, responda exatamente: NAO_LEGIVEL
+- Ignore cabeçalho, CNPJ, endereço, CPF, nome da loja, número do cupom, data/hora se não forem parte do item.
+- Ignore linhas de SUBTOTAL, TOTAL, TROCO, FORMA DE PAGAMENTO, PIX, CARTÃO, desconto geral (a menos que seja linha de item).
+- Se não conseguir separar quantidade, coloque só nome e valor na linha.
+- Não use markdown nem listas; apenas linhas de texto soltas.
+- Se a imagem não for legível, responda exatamente: NAO_LEGIVEL
 PROMPT;
 
         $body = [
@@ -120,7 +120,7 @@ PROMPT;
         }
 
         if (stripos($text, 'NAO_LEGIVEL') !== false) {
-            return ['ok' => false, 'text' => null, 'error' => 'Modelo nao leu o cupom'];
+            return ['ok' => false, 'text' => null, 'error' => 'Modelo não leu o cupom'];
         }
 
         return ['ok' => true, 'text' => $text, 'error' => null];

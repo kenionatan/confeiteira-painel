@@ -92,7 +92,7 @@
                 </div>
 
                 <h3 class="h4">Mao de obra</h3>
-                <p class="text-secondary small mb-2">Horas e valor da hora sao opcionais; deixe em branco se nao houver custo de mao de obra.</p>
+                <p class="text-secondary small mb-2">Horas e valor da hora são opcionais; deixe em branco se não houver custo de mão de obra.</p>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Horas trabalhadas <span class="text-secondary">(opcional)</span></label>
@@ -241,7 +241,7 @@
                 });
             }
 
-            /** Mao de obra: pode ficar em branco; nao forcar zero no blur */
+            /** Mão de obra: pode ficar em branco; não forçar zero no blur */
             function bindOptionalQtyMask(el) {
                 el.addEventListener('input', () => {
                     let s = String(el.value).replace(/[^\d.,]/g, '');

@@ -10,7 +10,7 @@ class DispatchTenantProvisioning extends BaseCommand
 {
     protected $group = 'Custom';
     protected $name = 'tenants:dispatch-pending';
-    protected $description = 'Reenvia jobs pendentes/falhos de provisionamento para a automacao.';
+    protected $description = 'Reenvia jobs pendentes/falhos de provisionamento para a automação.';
 
     public function run(array $params)
     {

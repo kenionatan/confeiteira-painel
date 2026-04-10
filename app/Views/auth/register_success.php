@@ -19,38 +19,66 @@
                     $slug = strtolower((string) ($planSlug ?? 'free'));
                     $isPaid = in_array($slug, ['basico', 'pro'], true);
                     $tenantDomain = trim((string) ($tenantDomain ?? ''));
+                    $tenantUrl = $tenantDomain !== '' ? 'https://' . preg_replace('#^https?://#i', '', $tenantDomain) : '';
+                    $supportEmail = 'bitdrop.store@gmail.com';
                     ?>
                     <?php if ($isPaid): ?>
                         <p class="text-secondary mb-0">
                             Sua conta no plano <strong><?= esc($planNome ?? '') ?></strong> foi criada e a primeira mensalidade foi cobrada com sucesso.
                             <?php if (! empty($email)): ?>
-                                As proximas orientacoes serao enviadas para <strong><?= esc($email) ?></strong>.
+                                As próximas orientações serão enviadas para <strong><?= esc($email) ?></strong>.
                             <?php endif; ?>
                         </p>
                         <p class="text-secondary mt-3 mb-0">
-                            Use seu e-mail e senha para <a href="/painel/login">entrar no painel</a> quando o acesso do cliente estiver liberado.
+                            O painel administrativo do site (gestão de assinatura) fica em <a href="/painel/login">login do painel</a>.
                         </p>
                     <?php else: ?>
                         <p class="text-secondary mb-0">
-                            Obrigado por se cadastrar no plano <?= esc($planNome ?? 'Free') ?>. Em breve voce recebera um e-mail
+                            Obrigado por se cadastrar no plano <?= esc($planNome ?? 'Free') ?>.
                             <?php if (! empty($email)): ?>
-                                em <strong><?= esc($email) ?></strong>
+                                Enviamos as próximas orientações para <strong><?= esc($email) ?></strong> quando o ambiente estiver pronto.
                             <?php endif; ?>
-                            com informacoes sobre o seu dominio e os proximos passos.
                         </p>
                         <p class="text-secondary mt-3 mb-0">
-                            Nossa equipe pode entrar em contato pelo WhatsApp informado para alinhar detalhes, se necessario.
+                            Nossa equipe pode entrar em contato pelo WhatsApp informado para alinhar detalhes, se necessário.
                         </p>
                     <?php endif; ?>
-                    <div class="alert alert-info mt-4 text-start">
-                        <strong>Provisionamento em andamento:</strong>
-                        estamos preparando seu ambiente dedicado.
-                        <?php if ($tenantDomain !== ''): ?>
-                            URL prevista: <code><?= esc($tenantDomain) ?></code>.
-                        <?php endif; ?>
+
+                    <?php if ($tenantUrl !== ''): ?>
+                        <div class="mt-4 text-start">
+                            <p class="text-secondary mb-2"><strong>Sua plataforma</strong></p>
+                            <p class="mb-2">
+                                <a href="<?= esc($tenantUrl, 'attr') ?>" class="btn btn-outline-primary w-100" rel="noopener">
+                                    Abrir <?= esc($tenantDomain) ?>
+                                </a>
+                            </p>
+                            <p class="text-secondary small mb-0">
+                                Acesse com o <strong>e-mail</strong> e a <strong>senha</strong> que você usou neste cadastro — são as mesmas credenciais do seu portal.
+                            </p>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="alert alert-info mt-4 text-start d-flex flex-column gap-2" role="alert">
+                        <div>
+                            <strong>Provisionamento em andamento</strong>
+                        </div>
+                        <p class="mb-0">
+                            Estamos preparando seu ambiente dedicado. Em alguns minutos o link da sua plataforma estará totalmente disponível.
+                            <?php if ($tenantDomain !== ''): ?>
+                                Endereço: <code class="user-select-all"><?= esc($tenantDomain) ?></code>
+                            <?php endif; ?>
+                        </p>
                     </div>
+
+                    <p class="text-secondary small text-start mb-0 mt-3">
+                        Problemas para acessar ou dúvidas?
+                        Escreva para
+                        <a href="mailto:<?= esc($supportEmail, 'attr') ?>"><?= esc($supportEmail) ?></a>
+                        e ajudamos você.
+                    </p>
+
                     <div class="mt-4">
-                        <a href="/" class="btn btn-primary w-100">Voltar ao inicio</a>
+                        <a href="/" class="btn btn-primary w-100">Voltar ao início</a>
                     </div>
                 </div>
             </div>

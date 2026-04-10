@@ -74,7 +74,7 @@ class TenantProvisioningService
         $clienteId = (int) ($payload['cliente_id'] ?? 0);
         $status = strtolower(trim((string) ($payload['status'] ?? '')));
         if ($clienteId <= 0 || ! in_array($status, ['provisioning', 'ready', 'failed'], true)) {
-            throw new \InvalidArgumentException('Payload de callback invalido.');
+            throw new \InvalidArgumentException('Payload de callback inválido.');
         }
 
         $jobModel = new TenantProvisionJobModel();
@@ -82,7 +82,7 @@ class TenantProvisioningService
 
         $job = $jobModel->where('cliente_id', $clienteId)->first();
         if (! $job) {
-            throw new \RuntimeException('Job de provisionamento nao encontrado.');
+            throw new \RuntimeException('Job de provisionamento não encontrado.');
         }
 
         $now = date('Y-m-d H:i:s');
@@ -209,7 +209,7 @@ class TenantProvisioningService
         $candidate = $parts[0] ?? '';
         $candidate = strtolower(trim($candidate));
         if (! preg_match('/^[a-z0-9][a-z0-9\-]{0,62}$/', $candidate)) {
-            throw new \InvalidArgumentException('Subdominio invalido para provisionamento.');
+            throw new \InvalidArgumentException('Subdomínio inválido para provisionamento.');
         }
 
         return $candidate;

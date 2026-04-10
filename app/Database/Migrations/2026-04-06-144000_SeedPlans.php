@@ -26,8 +26,8 @@ class SeedPlans extends Migration
             ],
             [
                 'slug' => 'basico',
-                'nome' => 'Basico',
-                'descricao' => 'Gestao completa para rotina de vendas e clientes.',
+                'nome' => 'Básico',
+                'descricao' => 'Precificação, cadastro de produtos e acesso por 7 dias.',
                 'valor_mensal' => '27.90',
                 'ativo' => 1,
                 'created_at' => $now,
@@ -36,7 +36,7 @@ class SeedPlans extends Migration
             [
                 'slug' => 'pro',
                 'nome' => 'Pro',
-                'descricao' => 'Tudo do Basico + recursos inteligentes de IA.',
+                'descricao' => 'Tudo do Básico + recursos inteligentes de IA.',
                 'valor_mensal' => '34.90',
                 'ativo' => 1,
                 'created_at' => $now,

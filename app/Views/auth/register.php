@@ -39,9 +39,9 @@
                     <p class="text-center text-secondary mb-4">
                         Plano: <span class="badge bg-primary-lt"><?= esc($planNome) ?></span>
                         <?php if ($isPaidPlan): ?>
-                            &mdash; <strong>R$ <?= esc($valorMensal) ?></strong> / mes
+                            &mdash; <strong>R$ <?= esc($valorMensal) ?></strong> / mês
                         <?php else: ?>
-                            &mdash; <strong>Gratis</strong>
+                            &mdash; <strong>Grátis</strong>
                         <?php endif; ?>
                     </p>
 
@@ -56,22 +56,22 @@
                     <?php endif; ?>
                     <?php if (($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey)): ?>
                         <div class="alert alert-warning">
-                            Configure a chave publica do Mercado Pago para habilitar o cadastro com cartao.
+                            Configure a chave pública do Mercado Pago para habilitar o cadastro com cartão.
                         </div>
                     <?php endif; ?>
                     <?php if (($gateway ?? '') === 'stripe' && empty($stripePublicKey ?? '')): ?>
                         <div class="alert alert-warning">
-                            Configure a chave publica do Stripe para habilitar a captura de cartao.
+                            Configure a chave pública do Stripe para habilitar a captura de cartão.
                         </div>
                     <?php endif; ?>
                     <?php if ($isPaidPlan && ($gateway ?? '') === 'mercado_pago'): ?>
                         <div class="alert alert-warning">
-                            Cadastro com planos pagos no momento so esta disponivel com o gateway Stripe. Escolha o plano Free ou altere <code>subscriptions.gateway</code> no .env.
+                            Cadastro com planos pagos no momento só está disponível com o gateway Stripe. Escolha o plano Free ou altere <code>subscriptions.gateway</code> no .env.
                         </div>
                     <?php endif; ?>
                     <?php if ($isPaidPlan && ($gateway ?? '') === 'stripe' && ! $priceIdsConfigured): ?>
                         <div class="alert alert-warning">
-                            Defina no .env o Price ID deste plano: <code>subscriptions.stripePriceBasico</code> ou <code>subscriptions.stripePricePro</code> (valor <code>price_...</code> do Stripe). Sem isso o pagamento nao inicia.
+                            Defina no .env o Price ID deste plano: <code>subscriptions.stripePriceBasico</code> ou <code>subscriptions.stripePricePro</code> (valor <code>price_...</code> do Stripe). Sem isso o pagamento não inicia.
                         </div>
                     <?php endif; ?>
 
@@ -81,7 +81,7 @@
                         <input type="hidden" name="stripe_subscription_id" id="stripe_subscription_id" value="">
 
                         <div class="mb-3">
-                            <label class="form-label">Dominio</label>
+                            <label class="form-label">Domínio</label>
                             <div class="input-group">
                                 <input type="text" name="dominio" value="<?= esc(old('dominio')) ?>" class="form-control" placeholder="minha-confeitaria" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*">
                                 <span class="input-group-text domain-addon">.appdoce.top</span>
@@ -96,7 +96,7 @@
                             <input type="text" name="whatsapp" value="<?= esc(old('whatsapp')) ?>" class="form-control" required placeholder="(11) 99999-9999">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Email</label>
+                            <label class="form-label">E-mail</label>
                             <input type="email" name="email" value="<?= esc(old('email')) ?>" class="form-control" required>
                         </div>
                         <div class="mb-3">
@@ -110,15 +110,15 @@
 
                         <?php if (($gateway ?? 'mercado_pago') === 'mercado_pago'): ?>
                             <hr class="my-4">
-                            <h3 class="h4 mb-3">Cartao</h3>
+                            <h3 class="h4 mb-3">Cartão</h3>
                             <?php if ($isPaidPlan): ?>
                                 <p class="text-secondary mb-3">Plano pago: use o cadastro com Stripe (veja aviso acima).</p>
                             <?php else: ?>
-                                <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. O cadastro do cartao e obrigatorio para concluir.</p>
+                                <p class="text-secondary mb-3">Nenhuma cobrança será feita agora. O cadastro do cartão é obrigatório para concluir.</p>
                             <?php endif; ?>
 
                             <div class="mb-3">
-                                <label class="form-label">Numero do cartao</label>
+                                <label class="form-label">Número do cartão</label>
                                 <div id="form-checkout__cardNumber" class="mp-container"></div>
                             </div>
                             <div class="row g-2">
@@ -132,7 +132,7 @@
                                 </div>
                             </div>
                             <div class="mb-3 mt-2">
-                                <label class="form-label">Nome no cartao</label>
+                                <label class="form-label">Nome no cartão</label>
                                 <input type="text" id="form-checkout__cardholderName" class="form-control" required>
                             </div>
                             <div class="row g-2">
@@ -161,16 +161,16 @@
                             <input type="hidden" id="form-checkout__cardholderEmail" value="">
                         <?php else: ?>
                             <hr class="my-4">
-                            <h3 class="h4 mb-3">Cartao</h3>
+                            <h3 class="h4 mb-3">Cartão</h3>
                             <?php if ($isPaidPlan && $useStripePaidFlow): ?>
                                 <p class="text-secondary mb-3">
-                                    Sera cobrada a <strong>primeira mensalidade</strong> (R$ <?= esc($valorMensal) ?>) agora. Renovacoes automaticas no cartao cadastrado.
+                                    Será cobrada a <strong>primeira mensalidade</strong> (R$ <?= esc($valorMensal) ?>) agora. Renovações automáticas no cartão cadastrado.
                                 </p>
                             <?php else: ?>
-                                <p class="text-secondary mb-3">Nenhuma cobranca sera feita agora. Vamos apenas validar e armazenar o metodo de pagamento.</p>
+                                <p class="text-secondary mb-3">Nenhuma cobrança será feita agora. Vamos apenas validar e armazenar o método de pagamento.</p>
                             <?php endif; ?>
                             <div class="mb-3">
-                                <label class="form-label">Cartao</label>
+                                <label class="form-label">Cartão</label>
                                 <div id="stripe-card-element" class="mp-container"></div>
                             </div>
                             <div class="small text-secondary">Dados protegidos pelo Stripe Elements.</div>
@@ -232,7 +232,7 @@
                     cardNumber: { id: 'form-checkout__cardNumber', placeholder: '5031 4332 1540 6351' },
                     expirationDate: { id: 'form-checkout__expirationDate', placeholder: 'MM/YY' },
                     securityCode: { id: 'form-checkout__securityCode', placeholder: '123' },
-                    cardholderName: { id: 'form-checkout__cardholderName', placeholder: 'Nome no cartao' },
+                    cardholderName: { id: 'form-checkout__cardholderName', placeholder: 'Nome no cartão' },
                     issuer: { id: 'form-checkout__issuer' },
                     installments: { id: 'form-checkout__installments' },
                     identificationType: { id: 'form-checkout__identificationType' },
@@ -242,7 +242,7 @@
                 callbacks: {
                     onFormMounted: (error) => {
                         if (error) {
-                            showError('Falha ao iniciar formulario de cartao.');
+                            showError('Falha ao iniciar formulário de cartão.');
                         }
                     },
                     onSubmit: (event) => {
@@ -250,11 +250,11 @@
                         errorEl.classList.add('d-none');
                         const data = cardForm.getCardFormData();
                         if (!data.token) {
-                            showError('Nao foi possivel gerar token do cartao.');
+                            showError('Não foi possível gerar token do cartão.');
                             return;
                         }
                         if (!data.paymentMethodId) {
-                            showError('Nao foi possivel identificar a bandeira do cartao. Digite novamente o numero.');
+                            showError('Não foi possível identificar a bandeira do cartão. Digite novamente o número.');
                             return;
                         }
 
@@ -268,7 +268,7 @@
                             error?.message ||
                             error?.cause?.[0]?.description ||
                             error?.cause?.[0]?.message ||
-                            'Cartao invalido ou nao autorizado para teste.';
+                            'Cartão inválido ou não autorizado para teste.';
                         showError(mpMessage);
                     },
                 },
@@ -311,7 +311,7 @@
 
             card.on('change', (event) => {
                 if (event.error) {
-                    showError(event.error.message || 'Dados de cartao invalidos.');
+                    showError(event.error.message || 'Dados de cartão inválidos.');
                     return;
                 }
                 errorEl.classList.add('d-none');
@@ -332,7 +332,7 @@
                 });
 
                 if (pmResult.error || !pmResult.paymentMethod) {
-                    showError(pmResult.error?.message || 'Nao foi possivel validar o cartao no Stripe.');
+                    showError(pmResult.error?.message || 'Não foi possível validar o cartão no Stripe.');
                     return;
                 }
 
@@ -364,7 +364,7 @@
                     if (prepJson.clientSecret) {
                         const pay = await stripe.confirmCardPayment(prepJson.clientSecret);
                         if (pay.error) {
-                            showError(pay.error.message || 'Pagamento nao autorizado.');
+                            showError(pay.error.message || 'Pagamento não autorizado.');
                             if (btn) btn.disabled = false;
                             return;
                         }
@@ -372,7 +372,7 @@
 
                     const subId = prepJson.subscriptionId;
                     if (!subId) {
-                        showError('Resposta invalida do servidor.');
+                        showError('Resposta inválida do servidor.');
                         if (btn) btn.disabled = false;
                         return;
                     }
@@ -391,7 +391,7 @@
                     } catch (_) {}
 
                     if (!fin.ok || !finJson.ok || !finJson.redirect) {
-                        showError(finJson.error || 'Nao foi possivel finalizar o cadastro.');
+                        showError(finJson.error || 'Não foi possível finalizar o cadastro.');
                         if (btn) btn.disabled = false;
                         return;
                     }
@@ -427,7 +427,7 @@
                 });
 
                 if (result.error || !result.paymentMethod) {
-                    showError(result.error?.message || 'Nao foi possivel validar o cartao no Stripe.');
+                    showError(result.error?.message || 'Não foi possível validar o cartão no Stripe.');
                     return;
                 }
 

@@ -151,7 +151,7 @@
                 const data = await res.json().catch(() => ({}));
                 loadingEl.classList.add('d-none');
                 if (!res.ok) {
-                    erroEl.textContent = data.error || 'Nao foi possivel carregar os dados.';
+                    erroEl.textContent = data.error || 'Não foi possível carregar os dados.';
                     erroEl.classList.remove('d-none');
                     return;
                 }

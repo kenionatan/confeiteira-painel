@@ -20,7 +20,7 @@ class StripeWebhookController extends BaseController
     {
         $cfg = config('Subscriptions');
         if ($cfg->stripeWebhookSecret === '' || $cfg->stripeSecretKey === '') {
-            return $this->response->setStatusCode(503)->setBody('Webhook nao configurado.');
+            return $this->response->setStatusCode(503)->setBody('Webhook não configurado.');
         }
 
         $payload = file_get_contents('php://input');
@@ -33,7 +33,7 @@ class StripeWebhookController extends BaseController
         try {
             $event = Webhook::constructEvent($payload, $sigHeader, $cfg->stripeWebhookSecret);
         } catch (\Throwable) {
-            return $this->response->setStatusCode(400)->setBody('Assinatura invalida.');
+            return $this->response->setStatusCode(400)->setBody('Assinatura inválida.');
         }
 
         $stripe = new StripeClient($cfg->stripeSecretKey);

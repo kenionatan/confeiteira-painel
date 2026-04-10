@@ -26,11 +26,11 @@ class CupomFiscalOcrSpaceExtractor
     {
         $apiKey = trim((string) $this->config->ocrSpaceApiKey);
         if ($apiKey === '') {
-            return ['ok' => false, 'text' => null, 'error' => 'API OCR.space nao configurada'];
+            return ['ok' => false, 'text' => null, 'error' => 'API OCR.space não configurada'];
         }
 
         if (! is_readable($absolutePath)) {
-            return ['ok' => false, 'text' => null, 'error' => 'Arquivo ilegivel'];
+            return ['ok' => false, 'text' => null, 'error' => 'Arquivo ilegível'];
         }
 
         $size = filesize($absolutePath);
@@ -74,7 +74,7 @@ class CupomFiscalOcrSpaceExtractor
                 'http_errors' => false,
             ]);
         } catch (\Throwable $e) {
-            log_message('error', 'Cupom OCR.space: requisicao falhou: ' . $e->getMessage());
+            log_message('error', 'Cupom OCR.space: requisição falhou: ' . $e->getMessage());
 
             return ['ok' => false, 'text' => null, 'error' => 'Falha de rede no OCR.space'];
         }

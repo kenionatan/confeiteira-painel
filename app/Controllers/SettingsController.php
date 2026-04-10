@@ -85,7 +85,7 @@ class SettingsController extends BaseController
         if (! in_array($theme, ['light', 'dark'], true)) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Tema invalido.',
+                'message' => 'Tema inválido.',
             ]);
         }
 

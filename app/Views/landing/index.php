@@ -362,10 +362,10 @@
                 <div class="row align-items-center g-4">
                     <div class="col-lg-7">
                         <span class="badge badge-soft mb-3">Sistema premium para confeitaria</span>
-                        <h1>Transforme sua confeitaria em uma <span class="highlight">maquina de vendas organizada</span>.</h1>
+                        <h1>Transforme sua confeitaria em uma <span class="highlight">máquina de vendas organizada</span>.</h1>
                         <p class="mt-3 mb-4">
                             Comece no plano Free com cadastro completo da conta e evolua para os planos pagos no seu ritmo.
-                            Controle clientes, pedidos e assinaturas em uma experiencia moderna e rapida.
+                            Controle clientes, pedidos e assinaturas em uma experiência moderna e rápida.
                         </p>
                         <div class="d-flex gap-2 flex-wrap">
                             <a class="btn btn-brand btn-lg" href="#planos">Ver planos</a>
@@ -376,7 +376,7 @@
                     </div>
                     <div class="col-lg-5">
                         <div class="popular-card-wrap">
-                            <img class="chart-corner" src="/images/chartchar.png" alt="Grafico do plano Pro">
+                            <img class="chart-corner" src="/images/chartchar.png" alt="Gráfico do plano Pro">
                             <div class="hero-panel popular-card p-3 p-md-4 tilt-card">
                                 <div class="mb-2">
                                     <span class="badge badge-popular">Popular</span>
@@ -384,16 +384,16 @@
                                 </div>
                                 <h3 class="text-white mb-1">Plano Pro</h3>
                                 <p class="text-secondary mb-3">O mais escolhido para ganhar velocidade e previsibilidade no faturamento.</p>
-                                <div class="plan-old">R$ 79,90/mes</div>
-                                <div class="plan-price mb-1">R$ 34,90<span class="fs-5 text-secondary">/mes</span></div>
+                                <div class="plan-old">R$ 79,90/mês</div>
+                                <div class="plan-price mb-1">R$ 34,90<span class="fs-5 text-secondary">/mês</span></div>
                                 <ul class="feature-list mb-4">
-                                    <li>Tudo do Basico + recursos de IA</li>
-                                    <li>Sugestoes inteligentes de cadastro</li>
-                                    <li>Novos recursos premium incluidos</li>
+                                    <li>Tudo do Básico + recursos de IA</li>
+                                    <li>Sugestões inteligentes de cadastro</li>
+                                    <li>Novos recursos premium incluídos</li>
                                 </ul>
                                 <a class="btn btn-brand w-100" href="/assinar/pro">Assinar Plano Pro</a>
                                 <p class="text-secondary mb-0">
-                                    Checkout com PIX, boleto e cartao para assinatura recorrente.
+                                    Checkout com PIX, boleto e cartão para assinatura recorrente.
                                 </p>
                             </div>
                         </div>
@@ -407,22 +407,22 @@
                 <div class="text-center mb-4">
                     <h2 class="section-title">Feito para acelerar seu dia</h2>
                     <p class="section-subtitle">
-                        Inspirado no estilo de landing pages SaaS modernas: foco em conversao, velocidade e clareza da proposta.
+                        Inspirado no estilo de landing pages SaaS modernas: foco em conversão, velocidade e clareza da proposta.
                     </p>
                 </div>
                 <div class="row g-3">
                     <div class="col-md-4">
                         <div class="benefit-card reveal">
                             <div class="benefit-icon">01</div>
-                            <h4 class="text-white">Gestao centralizada</h4>
-                            <p class="text-secondary mb-0">Clientes, pedidos e financeiro em uma unica visao com menos retrabalho.</p>
+                            <h4 class="text-white">Gestão centralizada</h4>
+                            <p class="text-secondary mb-0">Clientes, pedidos e financeiro em uma única visão com menos retrabalho.</p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="benefit-card reveal">
                             <div class="benefit-icon">02</div>
                             <h4 class="text-white">Checkout otimizado</h4>
-                            <p class="text-secondary mb-0">Fluxo rapido para assinatura e renovacao com meios de pagamento locais.</p>
+                            <p class="text-secondary mb-0">Fluxo rápido para assinatura e renovação com meios de pagamento locais.</p>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -440,7 +440,7 @@
             <div class="container-xl">
                 <div class="text-center mb-4 reveal">
                     <h2 class="section-title">Escolha seu plano</h2>
-                    <p class="section-subtitle">Comece no Basico e evolua para o Pro com funcionalidades de IA.</p>
+                    <p class="section-subtitle">Comece no Básico e evolua para o Pro com funcionalidades de IA.</p>
                 </div>
                 <div class="row g-4">
                     <?php foreach (($plans ?? []) as $slug => $plan): ?>
@@ -455,16 +455,16 @@
                                 <h3 class="text-white mb-1"><?= esc($plan['nome']) ?></h3>
                                 <p class="text-secondary mb-2"><?= esc($plan['descricao']) ?></p>
                                 <?php if (! empty($plan['valorAnterior'])): ?>
-                                    <div class="plan-old"><?= esc($plan['valorAnterior']) ?>/mes</div>
+                                    <div class="plan-old"><?= esc($plan['valorAnterior']) ?>/mês</div>
                                 <?php endif; ?>
-                                <div class="plan-price"><?= esc($plan['valor']) ?><span class="fs-5 text-secondary">/mes</span></div>
+                                <div class="plan-price"><?= esc($plan['valor']) ?><span class="fs-5 text-secondary">/mês</span></div>
                                 <ul class="feature-list mb-4">
                                     <?php foreach (($plan['features'] ?? []) as $feature): ?>
                                         <li><?= esc($feature) ?></li>
                                     <?php endforeach; ?>
                                 </ul>
                                 <a class="btn btn-brand w-100" href="/assinar/<?= esc($slug) ?>">
-                                    <?= $slug === 'free' ? 'Cadastrar gratis' : 'Assinar ' . esc($plan['nome']) ?>
+                                    <?= $slug === 'free' ? 'Cadastrar grátis' : 'Assinar ' . esc($plan['nome']) ?>
                                 </a>
                             </div>
                         </div>
@@ -477,7 +477,7 @@
             <div class="container-xl">
                 <div class="text-center mb-4 reveal">
                     <h2 class="section-title">Quem usa recomenda</h2>
-                    <p class="section-subtitle">Resultados reais de quem ja organizou a operacao com o sistema.</p>
+                    <p class="section-subtitle">Resultados reais de quem já organizou a operação com o sistema.</p>
                 </div>
                 <div class="testimonial-wrap reveal">
                     <div class="testimonial-track" id="testimonial-track">
@@ -491,7 +491,7 @@
                         </article>
                         <article class="testimonial-card">
                             <p class="mb-2 text-secondary">"A equipe ganhou velocidade no atendimento, e o cliente percebeu a melhora na hora."</p>
-                            <strong class="text-white">Juliana, atelie de bolos</strong>
+                            <strong class="text-white">Juliana, ateliê de bolos</strong>
                         </article>
                     </div>
                 </div>
@@ -527,7 +527,7 @@
                 setInterval(render, 1000);
             }
 
-            // Animacao de contadores
+            // Animação de contadores
             const counters = document.querySelectorAll('.counter');
             const animateCounter = (entry) => {
                 const el = entry.target;
@@ -578,7 +578,7 @@
                 }, 3800);
             }
 
-            // Leve efeito 3D nos cards para chamar atencao
+            // Leve efeito 3D nos cards para chamar atenção
             const tilts = document.querySelectorAll('.tilt-card');
             tilts.forEach((card) => {
                 card.addEventListener('mousemove', (event) => {

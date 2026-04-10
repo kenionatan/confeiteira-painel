@@ -15,7 +15,7 @@ class ProvisioningController extends BaseController
         if ($cfg->callbackToken === '') {
             return $this->response->setStatusCode(503)->setJSON([
                 'ok' => false,
-                'error' => 'Callback token nao configurado.',
+                'error' => 'Callback token não configurado.',
             ]);
         }
 
@@ -24,7 +24,7 @@ class ProvisioningController extends BaseController
         if (! hash_equals($expected, $auth)) {
             return $this->response->setStatusCode(401)->setJSON([
                 'ok' => false,
-                'error' => 'Nao autorizado.',
+                'error' => 'Não autorizado.',
             ]);
         }
 
@@ -40,7 +40,7 @@ class ProvisioningController extends BaseController
         } catch (\Throwable $e) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'error' => ENVIRONMENT !== 'production' ? $e->getMessage() : 'Payload invalido.',
+                'error' => ENVIRONMENT !== 'production' ? $e->getMessage() : 'Payload inválido.',
             ]);
         }
     }

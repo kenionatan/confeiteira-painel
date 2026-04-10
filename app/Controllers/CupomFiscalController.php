@@ -116,7 +116,7 @@ class CupomFiscalController extends BaseController
         $prodModel = new ProdutoModel();
 
         return view('cupom_fiscal/revisar', [
-            'title' => 'Revisar importacao do cupom',
+            'title' => 'Revisar importação do cupom',
             'import' => $import,
             'linhas' => $linhas,
             'linhas_sem_dados_salvos' => $linhasSemDadosSalvos,
@@ -185,7 +185,7 @@ class CupomFiscalController extends BaseController
 
         return redirect()->to('/produtos')->with(
             'success',
-            'Importacao concluida. Produtos novos: ' . $criados . '. Linhas associadas a produto existente (nao duplicadas): ' . $ignorados . '.'
+            'Importação concluída. Produtos novos: ' . $criados . '. Linhas associadas a produto existente (não duplicadas): ' . $ignorados . '.'
         );
     }
 
@@ -226,7 +226,7 @@ class CupomFiscalController extends BaseController
             if (! in_array($ext, $allowed, true)) {
                 return [
                     'success' => false,
-                    'errors' => ['Formato nao suportado. Use TXT, PDF ou imagem (JPG, PNG, WEBP).'],
+                    'errors' => ['Formato não suportado. Use TXT, PDF ou imagem (JPG, PNG, WEBP).'],
                     'import_id' => null,
                     'flash_warning' => null,
                     'debug' => [],
@@ -283,7 +283,7 @@ class CupomFiscalController extends BaseController
                     $extraTexto .= ($extraTexto !== '' ? "\n\n" : '') . $textoIa;
                     $log('IA (' . ($provedorIaSalvo ?? '?') . ') retornou ' . strlen($textoIa) . ' caracteres.');
                 } else {
-                    $log('IA nao retornou texto utilizavel.');
+                    $log('IA não retornou texto utilizável.');
                 }
                 if ($ia['warning'] !== null) {
                     $msg = 'Leitura automatica (IA): ' . $ia['warning'] . ' Cole o texto do cupom no campo abaixo ou tente outra foto.';
@@ -344,7 +344,7 @@ class CupomFiscalController extends BaseController
 
             return [
                 'success' => false,
-                'errors' => ['Nao foi possivel salvar a importacao no banco.' . $detail],
+                'errors' => ['Não foi possível salvar a importação no banco.' . $detail],
                 'import_id' => null,
                 'flash_warning' => null,
                 'debug' => [],
@@ -404,7 +404,7 @@ class CupomFiscalController extends BaseController
 
         if ($provider === 'ocrspace') {
             if (! $hasOcrSpace) {
-                return ['text' => null, 'provedor' => null, 'warning' => 'iaProvider=ocrspace mas cupomfiscal.ocrSpaceApiKey esta vazio.'];
+                return ['text' => null, 'provedor' => null, 'warning' => 'iaProvider=ocrspace mas cupomfiscal.ocrSpaceApiKey está vazio.'];
             }
             $logIa('OCR.space: enviando imagem (aguarde)...');
             $res = $tryOcrSpace();
@@ -421,7 +421,7 @@ class CupomFiscalController extends BaseController
 
         if ($provider === 'ollama') {
             if (! $hasOllama) {
-                return ['text' => null, 'provedor' => null, 'warning' => 'iaProvider=ollama mas cupomfiscal.ollamaBaseUrl esta vazio.'];
+                return ['text' => null, 'provedor' => null, 'warning' => 'iaProvider=ollama mas cupomfiscal.ollamaBaseUrl está vazio.'];
             }
             $logIa('Ollama: enviando imagem ao modelo ' . $cfg->ollamaModel . ' (aguarde)...');
             $res = $tryOllama();
@@ -437,7 +437,7 @@ class CupomFiscalController extends BaseController
 
         if ($provider === 'gemini') {
             if (! $hasGemini) {
-                return ['text' => null, 'provedor' => null, 'warning' => 'iaProvider=gemini mas cupomfiscal.geminiApiKey esta vazio.'];
+                return ['text' => null, 'provedor' => null, 'warning' => 'iaProvider=gemini mas cupomfiscal.geminiApiKey está vazio.'];
             }
             $logIa('Gemini: enviando imagem (aguarde)...');
             $res = $tryGemini();
@@ -449,7 +449,7 @@ class CupomFiscalController extends BaseController
             $err = (string) ($res['error'] ?? 'falha Gemini');
             $logIa('Gemini: erro — ' . $err);
 
-            return ['text' => null, 'provedor' => null, 'warning' => $err === 'API nao configurada' ? 'Gemini sem chave configurada.' : $err];
+            return ['text' => null, 'provedor' => null, 'warning' => $err === 'API não configurada' ? 'Gemini sem chave configurada.' : $err];
         }
 
         // auto: OCR.space primeiro (OCR dedicado), depois Ollama local, depois Gemini
@@ -474,7 +474,7 @@ class CupomFiscalController extends BaseController
 
                 return ['text' => $resO['text'], 'provedor' => 'ollama', 'warning' => null];
             }
-            if (($resO['error'] ?? '') !== 'Ollama nao configurado') {
+            if (($resO['error'] ?? '') !== 'Ollama não configurado') {
                 $avisos[] = (string) ($resO['error'] ?? 'Ollama falhou');
                 $logIa('Ollama falhou: ' . ($resO['error'] ?? ''));
             }
@@ -489,7 +489,7 @@ class CupomFiscalController extends BaseController
                 return ['text' => $resG['text'], 'provedor' => 'gemini', 'warning' => null];
             }
             $ge = (string) ($resG['error'] ?? 'Gemini falhou');
-            if ($ge !== 'API nao configurada') {
+            if ($ge !== 'API não configurada') {
                 $avisos[] = $ge;
                 $logIa('Gemini falhou: ' . $ge);
             }

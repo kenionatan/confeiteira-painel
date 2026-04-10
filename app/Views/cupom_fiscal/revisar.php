@@ -3,18 +3,18 @@
 <?= $this->section('content') ?>
 <?php $importId = (int) ($import['id'] ?? 0); ?>
 <div class="mb-3">
-    <p class="text-secondary mb-0">Revise cada linha, associe a um produto ja cadastrado para nao duplicar, ou marque para criar novo produto.</p>
+    <p class="text-secondary mb-0">Revise cada linha, associe a um produto já cadastrado para não duplicar, ou marque para criar novo produto.</p>
     <?php if (! empty($linhas_sem_dados_salvos)): ?>
         <div class="alert alert-warning mt-2 mb-0">
-            Nao foi possivel carregar as linhas salvas desta importacao (JSON vazio ou invalido). Foi aberta uma linha em branco.
-            Se voce acabou de enviar o cupom, confira o log no modal de processamento ou o texto extraido abaixo.
+            Não foi possível carregar as linhas salvas desta importação (JSON vazio ou inválido). Foi aberta uma linha em branco.
+            Se você acabou de enviar o cupom, confira o log no modal de processamento ou o texto extraído abaixo.
         </div>
     <?php endif; ?>
 </div>
 
 <?php if (! empty($import['texto_auxiliar'])): ?>
     <details class="card mb-3">
-        <summary class="card-header cursor-pointer user-select-none">Texto auxiliar / extraido (depuracao)</summary>
+        <summary class="card-header cursor-pointer user-select-none">Texto auxiliar / extraído (depuração)</summary>
         <div class="card-body">
             <pre class="small mb-0 text-break" style="white-space: pre-wrap; max-height: 320px; overflow: auto;"><?= esc((string) $import['texto_auxiliar']) ?></pre>
         </div>
