@@ -276,7 +276,8 @@ class TenantProvisioningService
             'last_error' => null,
         ]);
 
-        $result = $this->postProvisionPayloadResult($body, 10);
+        $timeout = max(30, $cfg->dispatchTimeout);
+        $result = $this->postProvisionPayloadResult($body, $timeout);
         $code = $result['code'];
         if ($code < 200 || $code >= 300) {
             $bodySnippet = trim((string) preg_replace('/\s+/', ' ', $result['body']));
@@ -287,7 +288,65 @@ class TenantProvisioningService
                 'status' => 'failed',
                 'last_error' => substr($detail, 0, 255),
             ]);
+
+            return;
         }
+
+        // Provisionamento síncrono concluiu com HTTP 2xx: grava metadados mesmo se o callback HTTP falhou
+        // (ex.: curl no script sem --fail retornava 0 com 401).
+        $this->markTenantReadyFromProvisionJob((int) $job['id'], (int) $cliente['id']);
+    }
+
+    /**
+     * Marca job como concluído e preenche tenant_db_* no cliente a partir do job (espelho do callback ready).
+     */
+    private function markTenantReadyFromProvisionJob(int $jobId, int $clienteId): void
+    {
+        $jobModel = new TenantProvisionJobModel();
+        $job = $jobModel->find($jobId);
+        if (! $job) {
+            return;
+        }
+
+        if (($job['status'] ?? '') === 'completed') {
+            return;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $dbName = trim((string) ($job['requested_db_name'] ?? ''));
+        $host = (string) ($job['requested_host'] ?? '');
+        $dbUser = '';
+        try {
+            $dbUser = $this->extractSubdomain($host);
+        } catch (\Throwable) {
+            $dbUser = '';
+        }
+
+        $jobModel->update($jobId, [
+            'status' => 'completed',
+            'last_error' => null,
+            'completed_at' => $now,
+            'payload_json' => json_encode([
+                'source' => 'dispatch_http_success',
+                'cliente_id' => $clienteId,
+                'db_name' => $dbName,
+                'db_user' => $dbUser,
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        $clienteUpdate = [
+            'tenant_status' => 'ready',
+            'tenant_ready_at' => $now,
+            'tenant_error_message' => null,
+        ];
+        if ($dbName !== '') {
+            $clienteUpdate['tenant_db_name'] = substr($dbName, 0, 80);
+        }
+        if ($dbUser !== '') {
+            $clienteUpdate['tenant_db_user'] = substr($dbUser, 0, 80);
+        }
+
+        (new ClienteModel())->update($clienteId, $clienteUpdate);
     }
 
     /**

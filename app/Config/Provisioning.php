@@ -30,6 +30,11 @@ class Provisioning extends BaseConfig
     /** Base path para provisionar pastas do portal no servidor. */
     public string $portalBasePath = '/var/www/html';
 
+    /**
+     * Timeout em segundos do POST para o provisionador (clone + composer + migrate pode demorar).
+     */
+    public int $dispatchTimeout = 300;
+
     public function __construct()
     {
         parent::__construct();
@@ -42,5 +47,6 @@ class Provisioning extends BaseConfig
         $this->portalGitRepo = (string) env('provisioning.portalGitRepo', $this->portalGitRepo);
         $this->portalGitRef = (string) env('provisioning.portalGitRef', $this->portalGitRef);
         $this->portalBasePath = (string) env('provisioning.portalBasePath', $this->portalBasePath);
+        $this->dispatchTimeout = max(30, (int) env('provisioning.dispatchTimeout', (string) $this->dispatchTimeout));
     }
 }

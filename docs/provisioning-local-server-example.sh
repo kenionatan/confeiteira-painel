@@ -185,7 +185,8 @@ elif [[ -n "${TENANT_SUBSCRIPTION_B64:-}" ]]; then
     php "$SUBSCRIPTION_BOOTSTRAP_PHP" || exit 1
 fi
 
-curl -sS -X POST "$CALLBACK_URL" \
+# --fail: HTTP 4xx/5xx do painel faz o script falhar (evita "sucesso" sem gravar tenant_db_name).
+if ! curl -fsS -X POST "$CALLBACK_URL" \
   -H "Authorization: Bearer ${CALLBACK_TOKEN}" \
   -H "Content-Type: application/json" \
   -d "{
@@ -193,6 +194,9 @@ curl -sS -X POST "$CALLBACK_URL" \
     \"status\": \"ready\",
     \"db_name\": \"${DB_NAME}\",
     \"db_user\": \"${DB_USER}\"
-  }"
+  }"; then
+  echo "Erro: callback para o painel falhou (URL/token ou rota). Verifique CALLBACK_URL e provisioning.callbackToken." >&2
+  exit 1
+fi
 
 echo "Provisionamento concluido para ${SUBDOMAIN}"

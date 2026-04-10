@@ -29,6 +29,8 @@ provisioning.callbackToken = TOKEN_BEARER_VALIDADO_NO_CALLBACK
 provisioning.portalGitRepo = https://github.com/sua-org/seu-portal-cliente.git
 provisioning.portalGitRef = main
 provisioning.portalBasePath = /var/www/html
+# Timeout do POST do painel para o provisionador (segundos; clone + migrate pode levar vários minutos)
+# provisioning.dispatchTimeout = 300
 ```
 
 ## 3) DNS wildcard
@@ -146,8 +148,10 @@ Status aceitos no callback: `provisioning`, `ready`, `failed`.
 7. gerar `.env` do portal com credenciais do DB recem criado;
 8. rodar migrations do portal (ex.: `sudo -u www-data php spark migrate` quando o chamador for root);
 9. (opcional) aplicar `tenant_admin_*` no banco do tenant para o login do portal coincidir com o cadastro;
-10. callback para `/provisioning/callback` com `status=ready`;
+10. callback para `/provisioning/callback` com `status=ready` (use `curl -f` para falhar o script se o painel responder 4xx/5xx);
 11. em erro, callback `status=failed`.
+
+Se o callback falhar em silêncio, o painel ainda grava `tenant_db_name` ao receber HTTP 2xx do provisionador (provisionamento síncrono).
 
 ### Exemplo minimo de `.env` do portal (gerado)
 
