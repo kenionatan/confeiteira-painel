@@ -16,25 +16,25 @@ class LandingController extends BaseController
                     'nome'          => 'Free',
                     'valor'         => 'R$ 0,00',
                     'valorAnterior' => '',
-                    'descricao'     => 'Plano gratuito para começar com cadastro completo da conta.',
-                    'destaque'      => false,
-                    'features'      => [
-                        'Cadastrar domínio no formato: dominio.appdoce.top',
-                        'Nome, telefone com WhatsApp, e-mail e senha',
-                        'Cadastro de cartão obrigatório (sem cobrança no Free)',
-                        'Acesso inicial para estruturar sua operação',
-                    ],
-                ],
-                'basico' => [
-                    'nome'          => 'Básico',
-                    'valor'         => 'R$ 27,90',
-                    'valorAnterior' => 'R$ 57,90',
                     'descricao'     => 'Precificação, cadastro de produtos e acesso por 7 dias.',
                     'destaque'      => false,
                     'features'      => [
                         'Precificação',
                         'Cadastro de produtos',
                         'Acesso por 7 dias',
+                    ],
+                ],
+                'basico' => [
+                    'nome'          => 'Básico',
+                    'valor'         => 'R$ 27,90',
+                    'valorAnterior' => 'R$ 57,90',
+                    'descricao'     => 'Gestão completa para rotina de vendas e clientes.',
+                    'destaque'      => false,
+                    'features'      => [
+                        'Cadastro e histórico de clientes',
+                        'Pedidos e acompanhamento',
+                        'Precificação e controle de produtos',
+                        'Dashboard com indicadores',
                     ],
                 ],
                 'pro' => [

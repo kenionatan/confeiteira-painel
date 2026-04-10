@@ -18,7 +18,7 @@ class SeedPlans extends Migration
             [
                 'slug' => 'free',
                 'nome' => 'Free',
-                'descricao' => 'Plano gratuito com cadastro completo.',
+                'descricao' => 'Precificação, cadastro de produtos e acesso por 7 dias.',
                 'valor_mensal' => '0.00',
                 'ativo' => 1,
                 'created_at' => $now,
@@ -27,7 +27,7 @@ class SeedPlans extends Migration
             [
                 'slug' => 'basico',
                 'nome' => 'Básico',
-                'descricao' => 'Precificação, cadastro de produtos e acesso por 7 dias.',
+                'descricao' => 'Gestão completa para rotina de vendas e clientes.',
                 'valor_mensal' => '27.90',
                 'ativo' => 1,
                 'created_at' => $now,

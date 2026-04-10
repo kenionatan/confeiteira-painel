@@ -5,9 +5,10 @@ namespace App\Database\Migrations;
 use CodeIgniter\Database\Migration;
 
 /**
- * Ajusta descrições no banco: Free (trial 7 dias) e textos com acentuação.
+ * Corrige cópia do Free (7 dias) e restaura descrição do Básico após ajuste anterior.
+ * Idempotente: seguro rodar mesmo se o estado já estiver correto.
  */
-class UpdatePlansBasicoAndAccents extends Migration
+class FixFreeBasicPlanDescriptions extends Migration
 {
     public function up()
     {
@@ -21,10 +22,6 @@ class UpdatePlansBasicoAndAccents extends Migration
             'descricao' => 'Gestão completa para rotina de vendas e clientes.',
             'updated_at' => $now,
         ]);
-        $this->db->table('plans')->where('slug', 'pro')->update([
-            'descricao' => 'Tudo do Básico + recursos inteligentes de IA.',
-            'updated_at' => $now,
-        ]);
     }
 
     public function down()
@@ -35,12 +32,7 @@ class UpdatePlansBasicoAndAccents extends Migration
             'updated_at' => $now,
         ]);
         $this->db->table('plans')->where('slug', 'basico')->update([
-            'nome' => 'Basico',
-            'descricao' => 'Gestao completa para rotina de vendas e clientes.',
-            'updated_at' => $now,
-        ]);
-        $this->db->table('plans')->where('slug', 'pro')->update([
-            'descricao' => 'Tudo do Basico + recursos inteligentes de IA.',
+            'descricao' => 'Precificação, cadastro de produtos e acesso por 7 dias.',
             'updated_at' => $now,
         ]);
     }
