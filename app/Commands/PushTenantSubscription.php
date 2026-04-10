@@ -13,7 +13,7 @@ class PushTenantSubscription extends BaseCommand
     protected $description = 'Reenvia tenant_subscription ao provisionador (sync_subscription_only) para atualizar a tabela subscriptions no portal do tenant.';
     protected $usage = 'tenants:push-subscription <cliente_id>';
     protected $arguments = [
-        'cliente_id' => 'ID do cliente (exige tenant_db_name preenchido após provisionamento).',
+        'cliente_id' => 'ID do cliente (usa tenant_db_name ou requested_db_name do job se necessário).',
     ];
 
     public function run(array $params)
@@ -25,11 +25,19 @@ class PushTenantSubscription extends BaseCommand
             return;
         }
 
-        $ok = (new TenantProvisioningService())->dispatchSubscriptionSync($id);
-        if ($ok) {
-            CLI::write("Sync de assinatura enviado para o cliente {$id}.", 'green');
+        $result = (new TenantProvisioningService())->dispatchSubscriptionSync($id);
+
+        if ($result['success']) {
+            CLI::write($result['message'], 'green');
         } else {
-            CLI::write('Falha ao enviar (confira provisioning.dispatchUrl, token, tenant_db_name do cliente e o handler sync no provisionador).', 'red');
+            CLI::write($result['message'], 'red');
+            if ($result['http_code'] > 0) {
+                CLI::write('HTTP ' . $result['http_code'], 'yellow');
+            }
+            if ($result['response_body'] !== '') {
+                CLI::write('Corpo da resposta:', 'yellow');
+                CLI::write($result['response_body']);
+            }
         }
     }
 }

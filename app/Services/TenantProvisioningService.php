@@ -104,11 +104,25 @@ class TenantProvisioningService
         ];
         if ($status === 'ready') {
             $clienteUpdate['tenant_ready_at'] = $now;
-            if (! empty($payload['db_name'])) {
-                $clienteUpdate['tenant_db_name'] = substr((string) $payload['db_name'], 0, 80);
+
+            $dbName = trim((string) ($payload['db_name'] ?? ''));
+            if ($dbName === '') {
+                $dbName = trim((string) ($job['requested_db_name'] ?? ''));
             }
-            if (! empty($payload['db_user'])) {
-                $clienteUpdate['tenant_db_user'] = substr((string) $payload['db_user'], 0, 80);
+            if ($dbName !== '') {
+                $clienteUpdate['tenant_db_name'] = substr($dbName, 0, 80);
+            }
+
+            $dbUser = trim((string) ($payload['db_user'] ?? ''));
+            if ($dbUser === '') {
+                try {
+                    $dbUser = $this->extractSubdomain((string) ($job['requested_host'] ?? ''));
+                } catch (\Throwable) {
+                    $dbUser = '';
+                }
+            }
+            if ($dbUser !== '') {
+                $clienteUpdate['tenant_db_user'] = substr($dbUser, 0, 80);
             }
         }
 
@@ -117,30 +131,63 @@ class TenantProvisioningService
 
     /**
      * Reenvia só os dados de assinatura para o provisionador (action sync_subscription_only).
-     * Útil quando o tenant já existe mas subscriptions no portal ficou no seed "free".
+     *
+     * @return array{success: bool, http_code: int, response_body: string, message: string}
      */
-    public function dispatchSubscriptionSync(int $clienteId): bool
+    public function dispatchSubscriptionSync(int $clienteId): array
     {
+        $fail = static fn (string $message): array => [
+            'success' => false,
+            'http_code' => 0,
+            'response_body' => '',
+            'message' => $message,
+        ];
+
         $cfg = config('Provisioning');
         if ($cfg->dispatchUrl === '') {
-            return false;
+            return $fail('provisioning.dispatchUrl está vazio.');
         }
 
-        $cliente = (new ClienteModel())->find($clienteId);
+        $clienteModel = new ClienteModel();
+        $cliente = $clienteModel->find($clienteId);
         if (! $cliente) {
-            return false;
+            return $fail("Cliente {$clienteId} não encontrado.");
         }
 
         $dbName = trim((string) ($cliente['tenant_db_name'] ?? ''));
+        $backfilled = false;
         if ($dbName === '') {
-            return false;
+            $jobModel = new TenantProvisionJobModel();
+            $job = $jobModel->where('cliente_id', $clienteId)->orderBy('id', 'DESC')->first();
+            if ($job) {
+                $dbName = trim((string) ($job['requested_db_name'] ?? ''));
+            }
+            if ($dbName === '') {
+                return $fail('tenant_db_name vazio no cliente e requested_db_name ausente no job de provisionamento.');
+            }
+            $dbUserFallback = '';
+            $hostForUser = $job !== null ? (string) ($job['requested_host'] ?? '') : '';
+            if ($hostForUser === '') {
+                $hostForUser = (string) ($cliente['dominio'] ?? '');
+            }
+            try {
+                $dbUserFallback = $this->extractSubdomain($hostForUser);
+            } catch (\Throwable) {
+                $dbUserFallback = '';
+            }
+            $fill = ['tenant_db_name' => substr($dbName, 0, 80)];
+            if ($dbUserFallback !== '') {
+                $fill['tenant_db_user'] = substr($dbUserFallback, 0, 80);
+            }
+            $clienteModel->update($clienteId, $fill);
+            $backfilled = true;
         }
 
         $dominio = strtolower(trim((string) ($cliente['dominio'] ?? '')));
         try {
             $subdomain = $this->extractSubdomain($dominio);
         } catch (\Throwable) {
-            return false;
+            return $fail('dominio do cliente inválido para extrair subdomínio.');
         }
 
         $body = [
@@ -151,9 +198,31 @@ class TenantProvisioningService
             'tenant_subscription' => $this->buildTenantSubscriptionPayload($clienteId),
         ];
 
-        $code = $this->postProvisionPayload($body, 30);
+        $result = $this->postProvisionPayloadResult($body, 30);
+        $code = $result['code'];
+        $responseBody = $result['body'];
+        if ($code === 0) {
+            $hint = $result['curl_error'] !== '' ? ' (' . $result['curl_error'] . ')' : '';
 
-        return $code >= 200 && $code < 300;
+            return [
+                'success' => false,
+                'http_code' => 0,
+                'response_body' => $responseBody,
+                'message' => 'Falha de rede ou timeout ao chamar dispatchUrl.' . $hint,
+            ];
+        }
+
+        $success = $code >= 200 && $code < 300;
+        $msg = $success
+            ? ($backfilled ? 'OK (tenant_db_name preenchido a partir do job.)' : 'OK.')
+            : 'HTTP ' . $code;
+
+        return [
+            'success' => $success,
+            'http_code' => $code,
+            'response_body' => $responseBody,
+            'message' => $msg,
+        ];
     }
 
     private function dispatchToAutomation(int $jobId): void
@@ -207,20 +276,34 @@ class TenantProvisioningService
             'last_error' => null,
         ]);
 
-        $code = $this->postProvisionPayload($body, 10);
+        $result = $this->postProvisionPayloadResult($body, 10);
+        $code = $result['code'];
         if ($code < 200 || $code >= 300) {
-            $msg = $code === 0 ? 'Dispatch falhou (rede ou timeout)' : 'Dispatch HTTP ' . $code;
+            $bodySnippet = trim((string) preg_replace('/\s+/', ' ', $result['body']));
+            $detail = $code === 0
+                ? ('Dispatch falhou (rede ou timeout)' . ($result['curl_error'] !== '' ? ': ' . $result['curl_error'] : ''))
+                : ('Dispatch HTTP ' . $code . ' — ' . substr($bodySnippet, 0, 200));
             $jobModel->update((int) $job['id'], [
                 'status' => 'failed',
-                'last_error' => substr($msg, 0, 255),
+                'last_error' => substr($detail, 0, 255),
             ]);
         }
     }
 
     /**
-     * POST JSON para provisioning.dispatchUrl.
+     * POST JSON para provisioning.dispatchUrl (apenas código HTTP).
      */
     private function postProvisionPayload(array $body, int $timeoutSeconds = 10): int
+    {
+        return $this->postProvisionPayloadResult($body, $timeoutSeconds)['code'];
+    }
+
+    /**
+     * POST JSON para provisioning.dispatchUrl.
+     *
+     * @return array{code: int, body: string, curl_error: string}
+     */
+    private function postProvisionPayloadResult(array $body, int $timeoutSeconds = 10): array
     {
         $cfg = config('Provisioning');
         $headers = ['Accept' => 'application/json', 'Content-Type' => 'application/json'];
@@ -236,9 +319,17 @@ class TenantProvisioningService
                 'timeout' => $timeoutSeconds,
             ]);
 
-            return $response->getStatusCode();
-        } catch (\Throwable) {
-            return 0;
+            return [
+                'code' => $response->getStatusCode(),
+                'body' => (string) $response->getBody(),
+                'curl_error' => '',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'code' => 0,
+                'body' => '',
+                'curl_error' => $e->getMessage(),
+            ];
         }
     }
 

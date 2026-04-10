@@ -78,7 +78,9 @@ No AWS Certificate Manager (ACM):
 6. provisionador escreve `.env` do portal apontando para o DB novo;
 7. provisionador roda migrations do portal;
 8. provisionador chama callback `POST /provisioning/callback` com `Authorization: Bearer provisioning.callbackToken`;
-7. app marca `tenant_status=ready` (ou `failed`) e salva metadados.
+9. app marca `tenant_status=ready` (ou `failed`) e salva metadados.
+
+Se o callback vier sem `db_name` / `db_user`, o painel preenche `tenant_db_name` com `requested_db_name` do job e `tenant_db_user` com o subdomínio derivado de `requested_host`.
 
 ## 7) Contrato do payload (app -> AWS)
 
