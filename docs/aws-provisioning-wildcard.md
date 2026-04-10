@@ -183,6 +183,14 @@ php spark tenants:dispatch-pending
 php spark tenants:dispatch-pending 100
 ```
 
+- Se o tenant ja foi criado mas `subscriptions` no portal ficou no seed `free`, reenvie só o plano (exige `tenant_db_name` no cliente e handler no provisionador):
+
+```bash
+php spark tenants:push-subscription <cliente_id>
+```
+
+O painel envia `action: sync_subscription_only` para `provisioning.dispatchUrl`. O `docs/provisioner-index.example.php` trata isso com `MYSQL_ADMIN_*` e `docs/sync-subscription-bootstrap.php`.
+
 ## 12) Observacoes importantes para seu cenario
 
 - Com wildcard DNS, qualquer subdominio resolve no DNS, mas so os cadastrados devem funcionar na app.

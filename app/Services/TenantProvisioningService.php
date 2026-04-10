@@ -115,6 +115,47 @@ class TenantProvisioningService
         $clienteModel->update($clienteId, $clienteUpdate);
     }
 
+    /**
+     * Reenvia só os dados de assinatura para o provisionador (action sync_subscription_only).
+     * Útil quando o tenant já existe mas subscriptions no portal ficou no seed "free".
+     */
+    public function dispatchSubscriptionSync(int $clienteId): bool
+    {
+        $cfg = config('Provisioning');
+        if ($cfg->dispatchUrl === '') {
+            return false;
+        }
+
+        $cliente = (new ClienteModel())->find($clienteId);
+        if (! $cliente) {
+            return false;
+        }
+
+        $dbName = trim((string) ($cliente['tenant_db_name'] ?? ''));
+        if ($dbName === '') {
+            return false;
+        }
+
+        $dominio = strtolower(trim((string) ($cliente['dominio'] ?? '')));
+        try {
+            $subdomain = $this->extractSubdomain($dominio);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        $body = [
+            'action' => 'sync_subscription_only',
+            'cliente_id' => $clienteId,
+            'requested_subdomain' => $subdomain,
+            'requested_db_name' => $dbName,
+            'tenant_subscription' => $this->buildTenantSubscriptionPayload($clienteId),
+        ];
+
+        $code = $this->postProvisionPayload($body, 30);
+
+        return $code >= 200 && $code < 300;
+    }
+
     private function dispatchToAutomation(int $jobId): void
     {
         $cfg = config('Provisioning');
@@ -159,11 +200,6 @@ class TenantProvisioningService
             'tenant_subscription' => $this->buildTenantSubscriptionPayload((int) $cliente['id']),
         ];
 
-        $headers = ['Accept' => 'application/json', 'Content-Type' => 'application/json'];
-        if ($cfg->dispatchToken !== '') {
-            $headers['Authorization'] = 'Bearer ' . $cfg->dispatchToken;
-        }
-
         $jobModel->update((int) $job['id'], [
             'status' => 'processing',
             'attempt_count' => (int) $job['attempt_count'] + 1,
@@ -171,26 +207,38 @@ class TenantProvisioningService
             'last_error' => null,
         ]);
 
+        $code = $this->postProvisionPayload($body, 10);
+        if ($code < 200 || $code >= 300) {
+            $msg = $code === 0 ? 'Dispatch falhou (rede ou timeout)' : 'Dispatch HTTP ' . $code;
+            $jobModel->update((int) $job['id'], [
+                'status' => 'failed',
+                'last_error' => substr($msg, 0, 255),
+            ]);
+        }
+    }
+
+    /**
+     * POST JSON para provisioning.dispatchUrl.
+     */
+    private function postProvisionPayload(array $body, int $timeoutSeconds = 10): int
+    {
+        $cfg = config('Provisioning');
+        $headers = ['Accept' => 'application/json', 'Content-Type' => 'application/json'];
+        if ($cfg->dispatchToken !== '') {
+            $headers['Authorization'] = 'Bearer ' . $cfg->dispatchToken;
+        }
+
         try {
             $response = service('curlrequest')->request('POST', $cfg->dispatchUrl, [
                 'headers' => $headers,
                 'body' => json_encode($body, JSON_UNESCAPED_UNICODE),
                 'http_errors' => false,
-                'timeout' => 10,
+                'timeout' => $timeoutSeconds,
             ]);
 
-            $code = $response->getStatusCode();
-            if ($code < 200 || $code >= 300) {
-                $jobModel->update((int) $job['id'], [
-                    'status' => 'failed',
-                    'last_error' => 'Dispatch HTTP ' . $code,
-                ]);
-            }
-        } catch (\Throwable $e) {
-            $jobModel->update((int) $job['id'], [
-                'status' => 'failed',
-                'last_error' => substr('Dispatch falhou: ' . $e->getMessage(), 0, 255),
-            ]);
+            return $response->getStatusCode();
+        } catch (\Throwable) {
+            return 0;
         }
     }
 

@@ -14,9 +14,14 @@ export GIT_TERMINAL_PROMPT=0
 # - faz callback para o painel
 #
 # Variáveis opcionais vindas do index.php do provisionador:
-#   TENANT_SUBSCRIPTION_B64 — base64(JSON) com plan_slug, plan_name, status, gateway, etc.
+#   TENANT_SUBSCRIPTION_JSON_FILE — caminho do JSON (preferido)
+#   TENANT_SUBSCRIPTION_B64 — alternativa base64(JSON)
+# Copie sync-subscription-bootstrap.php para o mesmo diretório deste script (ou defina SUBSCRIPTION_BOOTSTRAP_PHP).
 #
 # Atenção: adapte para seu ambiente e hardening.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SUBSCRIPTION_BOOTSTRAP_PHP="${SUBSCRIPTION_BOOTSTRAP_PHP:-$SCRIPT_DIR/sync-subscription-bootstrap.php}"
 
 SUBDOMAIN="${1:-}"
 DB_NAME="${2:-}"
@@ -160,115 +165,24 @@ BOOTSTRAP_ADMIN
 fi
 
 # Atualiza a linha de assinatura criada pelo seed da migration do portal (ex.: plano free -> plano real).
-if [[ -n "${TENANT_SUBSCRIPTION_B64:-}" ]]; then
+if [[ -n "${TENANT_SUBSCRIPTION_JSON_FILE:-}" && -f "${TENANT_SUBSCRIPTION_JSON_FILE}" ]]; then
+  if [[ ! -f "$SUBSCRIPTION_BOOTSTRAP_PHP" ]]; then
+    echo "Erro: $SUBSCRIPTION_BOOTSTRAP_PHP nao encontrado. Copie docs/sync-subscription-bootstrap.php do repositorio." >&2
+    exit 1
+  fi
+  run_as_www_data env MYSQL_HOST="$MYSQL_HOST" MYSQL_PORT="$MYSQL_PORT" \
+    TENANT_DB_NAME="$DB_NAME" TENANT_DB_USER="$DB_USER" TENANT_DB_PASS="$DB_PASS" \
+    TENANT_SUBSCRIPTION_JSON_FILE="${TENANT_SUBSCRIPTION_JSON_FILE}" \
+    php "$SUBSCRIPTION_BOOTSTRAP_PHP" || exit 1
+elif [[ -n "${TENANT_SUBSCRIPTION_B64:-}" ]]; then
+  if [[ ! -f "$SUBSCRIPTION_BOOTSTRAP_PHP" ]]; then
+    echo "Erro: $SUBSCRIPTION_BOOTSTRAP_PHP nao encontrado." >&2
+    exit 1
+  fi
   run_as_www_data env MYSQL_HOST="$MYSQL_HOST" MYSQL_PORT="$MYSQL_PORT" \
     TENANT_DB_NAME="$DB_NAME" TENANT_DB_USER="$DB_USER" TENANT_DB_PASS="$DB_PASS" \
     TENANT_SUBSCRIPTION_B64="$TENANT_SUBSCRIPTION_B64" \
-    php <<'BOOTSTRAP_SUBSCRIPTION'
-<?php
-declare(strict_types=1);
-
-$b64 = (string) getenv('TENANT_SUBSCRIPTION_B64');
-if ($b64 === '') {
-    exit(0);
-}
-
-$raw = base64_decode($b64, true);
-if ($raw === false || $raw === '') {
-    fwrite(STDERR, "tenant-subscription-bootstrap: TENANT_SUBSCRIPTION_B64 invalido.\n");
-    exit(1);
-}
-
-$data = json_decode($raw, true);
-if (! is_array($data)) {
-    fwrite(STDERR, "tenant-subscription-bootstrap: JSON invalido apos base64.\n");
-    exit(1);
-}
-
-$host = getenv('MYSQL_HOST') ?: '127.0.0.1';
-$port = (int) (getenv('MYSQL_PORT') ?: '3306');
-$db   = (string) getenv('TENANT_DB_NAME');
-$user = (string) getenv('TENANT_DB_USER');
-$pass = (string) getenv('TENANT_DB_PASS');
-
-$dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $host, $port, $db);
-$pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-
-$tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_NUM);
-$hasSubscriptions = false;
-foreach ($tables as $row) {
-    if (($row[0] ?? '') === 'subscriptions') {
-        $hasSubscriptions = true;
-        break;
-    }
-}
-if (! $hasSubscriptions) {
-    fwrite(STDERR, "tenant-subscription-bootstrap: tabela subscriptions ausente; nada feito.\n");
-    exit(0);
-}
-
-$stmt = $pdo->query('SELECT MIN(id) FROM `subscriptions`');
-$rowId = $stmt ? (int) $stmt->fetchColumn() : 0;
-if ($rowId < 1) {
-    fwrite(STDERR, "tenant-subscription-bootstrap: subscriptions vazia; nada feito.\n");
-    exit(0);
-}
-
-$allowedStatus = ['trial', 'active', 'past_due', 'cancelled'];
-$status = (string) ($data['status'] ?? 'trial');
-if (! in_array($status, $allowedStatus, true)) {
-    $status = 'trial';
-}
-
-$planSlug = substr(trim((string) ($data['plan_slug'] ?? 'free')), 0, 40);
-if ($planSlug === '') {
-    $planSlug = 'free';
-}
-$planName = isset($data['plan_name']) && $data['plan_name'] !== null && $data['plan_name'] !== ''
-    ? substr((string) $data['plan_name'], 0, 120)
-    : null;
-$gateway = substr(trim((string) ($data['gateway'] ?? 'none')), 0, 40);
-if ($gateway === '') {
-    $gateway = 'none';
-}
-
-$gwSub = $data['gateway_subscription_id'] ?? null;
-$gwSub = ($gwSub !== null && $gwSub !== '') ? substr((string) $gwSub, 0, 120) : null;
-
-$nullOrString = static function ($v): ?string {
-    if ($v === null || $v === '') {
-        return null;
-    }
-
-    return (string) $v;
-};
-
-$started = $nullOrString($data['started_at'] ?? null);
-$next = $nullOrString($data['next_billing_at'] ?? null);
-$ends = $nullOrString($data['ends_at'] ?? null);
-$now = date('Y-m-d H:i:s');
-
-$sql = 'UPDATE `subscriptions` SET
-    `plan_slug` = ?, `plan_name` = ?, `status` = ?, `gateway` = ?, `gateway_subscription_id` = ?,
-    `started_at` = ?, `next_billing_at` = ?, `ends_at` = ?, `updated_at` = ?
-    WHERE `id` = ?';
-
-$pdo->prepare($sql)->execute([
-    $planSlug,
-    $planName,
-    $status,
-    $gateway,
-    $gwSub,
-    $started,
-    $next,
-    $ends,
-    $now,
-    $rowId,
-]);
-
-fwrite(STDERR, "tenant-subscription-bootstrap: subscriptions id {$rowId} atualizado ({$planSlug})\n");
-BOOTSTRAP_SUBSCRIPTION
-
+    php "$SUBSCRIPTION_BOOTSTRAP_PHP" || exit 1
 fi
 
 curl -sS -X POST "$CALLBACK_URL" \
