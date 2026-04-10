@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export HOME=/var/www
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes"
+export GIT_TERMINAL_PROMPT=0
 
 # Exemplo de provisionador local (endpoint/backend worker), para custo baixo:
 # - cria DB com nome do subdominio
@@ -7,15 +10,13 @@ set -euo pipefail
 # - clona repo do portal
 # - gera .env
 # - roda migrations do portal
+# - atualiza users (admin) e subscriptions (plano) a partir do JSON do painel
 # - faz callback para o painel
 #
-# Atenção: adapte para seu ambiente e hardening.
+# Variáveis opcionais vindas do index.php do provisionador:
+#   TENANT_SUBSCRIPTION_B64 — base64(JSON) com plan_slug, plan_name, status, gateway, etc.
 #
-# Admin do portal (mesmo e-mail/senha do cadastro no painel):
-#   export TENANT_ADMIN_EMAIL="cliente@exemplo.com"
-#   export TENANT_ADMIN_PASSWORD_HASH="<bcrypt vindo do painel no JSON tenant_admin_password_hash>"
-#   export TENANT_ADMIN_NAME="Nome do Cliente"   # opcional
-# O painel envia hash em clientes.senha_hash; não envie senha em texto plano.
+# Atenção: adapte para seu ambiente e hardening.
 
 SUBDOMAIN="${1:-}"
 DB_NAME="${2:-}"
@@ -60,9 +61,6 @@ CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';
 ALTER USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
-CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';
-ALTER USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';
-GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
@@ -96,11 +94,10 @@ if [[ -f "$APP_DIR/composer.json" ]]; then
 fi
 
 if [[ -f "$APP_DIR/spark" ]]; then
-  run_as_www_data php "$APP_DIR/spark" migrate -n App || run_as_www_data php "$APP_DIR/spark" migrate
+    run_as_www_data php "$APP_DIR/spark" migrate -n App || run_as_www_data php "$APP_DIR/spark" migrate
 fi
 
 # Atualiza o primeiro usuário do portal (seed/migrations) com e-mail e hash do cadastro no painel.
-# Espera tabela `users` com colunas email, password_hash, name (CodeIgniter 4 comum).
 if [[ -n "${TENANT_ADMIN_EMAIL:-}" && -n "${TENANT_ADMIN_PASSWORD_HASH:-}" ]]; then
   export MYSQL_HOST MYSQL_PORT DB_NAME DB_USER DB_PASS
   export TENANT_ADMIN_EMAIL TENANT_ADMIN_PASSWORD_HASH
@@ -159,6 +156,119 @@ $params[] = $firstId;
 $pdo->prepare($sql)->execute($params);
 fwrite(STDERR, "tenant-admin-bootstrap: usuario id {$firstId} atualizado para {$email}\n");
 BOOTSTRAP_ADMIN
+
+fi
+
+# Atualiza a linha de assinatura criada pelo seed da migration do portal (ex.: plano free -> plano real).
+if [[ -n "${TENANT_SUBSCRIPTION_B64:-}" ]]; then
+  run_as_www_data env MYSQL_HOST="$MYSQL_HOST" MYSQL_PORT="$MYSQL_PORT" \
+    TENANT_DB_NAME="$DB_NAME" TENANT_DB_USER="$DB_USER" TENANT_DB_PASS="$DB_PASS" \
+    TENANT_SUBSCRIPTION_B64="$TENANT_SUBSCRIPTION_B64" \
+    php <<'BOOTSTRAP_SUBSCRIPTION'
+<?php
+declare(strict_types=1);
+
+$b64 = (string) getenv('TENANT_SUBSCRIPTION_B64');
+if ($b64 === '') {
+    exit(0);
+}
+
+$raw = base64_decode($b64, true);
+if ($raw === false || $raw === '') {
+    fwrite(STDERR, "tenant-subscription-bootstrap: TENANT_SUBSCRIPTION_B64 invalido.\n");
+    exit(1);
+}
+
+$data = json_decode($raw, true);
+if (! is_array($data)) {
+    fwrite(STDERR, "tenant-subscription-bootstrap: JSON invalido apos base64.\n");
+    exit(1);
+}
+
+$host = getenv('MYSQL_HOST') ?: '127.0.0.1';
+$port = (int) (getenv('MYSQL_PORT') ?: '3306');
+$db   = (string) getenv('TENANT_DB_NAME');
+$user = (string) getenv('TENANT_DB_USER');
+$pass = (string) getenv('TENANT_DB_PASS');
+
+$dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $host, $port, $db);
+$pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+
+$tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_NUM);
+$hasSubscriptions = false;
+foreach ($tables as $row) {
+    if (($row[0] ?? '') === 'subscriptions') {
+        $hasSubscriptions = true;
+        break;
+    }
+}
+if (! $hasSubscriptions) {
+    fwrite(STDERR, "tenant-subscription-bootstrap: tabela subscriptions ausente; nada feito.\n");
+    exit(0);
+}
+
+$stmt = $pdo->query('SELECT MIN(id) FROM `subscriptions`');
+$rowId = $stmt ? (int) $stmt->fetchColumn() : 0;
+if ($rowId < 1) {
+    fwrite(STDERR, "tenant-subscription-bootstrap: subscriptions vazia; nada feito.\n");
+    exit(0);
+}
+
+$allowedStatus = ['trial', 'active', 'past_due', 'cancelled'];
+$status = (string) ($data['status'] ?? 'trial');
+if (! in_array($status, $allowedStatus, true)) {
+    $status = 'trial';
+}
+
+$planSlug = substr(trim((string) ($data['plan_slug'] ?? 'free')), 0, 40);
+if ($planSlug === '') {
+    $planSlug = 'free';
+}
+$planName = isset($data['plan_name']) && $data['plan_name'] !== null && $data['plan_name'] !== ''
+    ? substr((string) $data['plan_name'], 0, 120)
+    : null;
+$gateway = substr(trim((string) ($data['gateway'] ?? 'none')), 0, 40);
+if ($gateway === '') {
+    $gateway = 'none';
+}
+
+$gwSub = $data['gateway_subscription_id'] ?? null;
+$gwSub = ($gwSub !== null && $gwSub !== '') ? substr((string) $gwSub, 0, 120) : null;
+
+$nullOrString = static function ($v): ?string {
+    if ($v === null || $v === '') {
+        return null;
+    }
+
+    return (string) $v;
+};
+
+$started = $nullOrString($data['started_at'] ?? null);
+$next = $nullOrString($data['next_billing_at'] ?? null);
+$ends = $nullOrString($data['ends_at'] ?? null);
+$now = date('Y-m-d H:i:s');
+
+$sql = 'UPDATE `subscriptions` SET
+    `plan_slug` = ?, `plan_name` = ?, `status` = ?, `gateway` = ?, `gateway_subscription_id` = ?,
+    `started_at` = ?, `next_billing_at` = ?, `ends_at` = ?, `updated_at` = ?
+    WHERE `id` = ?';
+
+$pdo->prepare($sql)->execute([
+    $planSlug,
+    $planName,
+    $status,
+    $gateway,
+    $gwSub,
+    $started,
+    $next,
+    $ends,
+    $now,
+    $rowId,
+]);
+
+fwrite(STDERR, "tenant-subscription-bootstrap: subscriptions id {$rowId} atualizado ({$planSlug})\n");
+BOOTSTRAP_SUBSCRIPTION
+
 fi
 
 curl -sS -X POST "$CALLBACK_URL" \

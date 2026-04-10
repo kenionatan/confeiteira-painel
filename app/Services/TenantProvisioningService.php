@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\ClienteModel;
+use App\Models\PlanModel;
+use App\Models\SubscriptionModel;
 use App\Models\TenantProvisionJobModel;
 
 class TenantProvisioningService
@@ -136,6 +138,7 @@ class TenantProvisioningService
         $appPath = rtrim((string) $cfg->portalBasePath, '/\\') . DIRECTORY_SEPARATOR . $requestedSubdomain;
 
         $body = [
+            'provisioning_payload_version' => 1,
             'job_id' => (int) $job['id'],
             'cliente_id' => (int) $cliente['id'],
             'requested_host' => $requestedHost,
@@ -153,6 +156,7 @@ class TenantProvisioningService
                 'whatsapp' => (string) ($cliente['whatsapp'] ?? ''),
                 'dominio' => (string) ($cliente['dominio'] ?? ''),
             ],
+            'tenant_subscription' => $this->buildTenantSubscriptionPayload((int) $cliente['id']),
         ];
 
         $headers = ['Accept' => 'application/json', 'Content-Type' => 'application/json'];
@@ -188,6 +192,66 @@ class TenantProvisioningService
                 'last_error' => substr('Dispatch falhou: ' . $e->getMessage(), 0, 255),
             ]);
         }
+    }
+
+    /**
+     * Dados da assinatura no painel para espelhar na tabela `subscriptions` do portal do tenant.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildTenantSubscriptionPayload(int $clienteId): array
+    {
+        $subscriptionModel = new SubscriptionModel();
+        $sub = $subscriptionModel->where('cliente_id', $clienteId)->orderBy('id', 'DESC')->first();
+
+        if (! $sub) {
+            return [
+                'plan_slug' => 'free',
+                'plan_name' => 'Free',
+                'status' => 'trial',
+                'gateway' => 'none',
+                'gateway_subscription_id' => null,
+                'started_at' => null,
+                'next_billing_at' => null,
+                'ends_at' => null,
+            ];
+        }
+
+        $planModel = new PlanModel();
+        $plan = $planModel->find((int) $sub['plan_id']);
+        $slug = $plan ? trim((string) ($plan['slug'] ?? '')) : '';
+        $name = $plan ? trim((string) ($plan['nome'] ?? '')) : '';
+        if ($slug === '') {
+            $slug = 'free';
+        }
+        if ($name === '') {
+            $name = $slug;
+        }
+
+        $gatewaySubId = $sub['gateway_subscription_id'] ?? null;
+        $gatewaySubId = ($gatewaySubId !== null && $gatewaySubId !== '')
+            ? (string) $gatewaySubId
+            : null;
+
+        return [
+            'plan_slug' => $slug,
+            'plan_name' => $name,
+            'status' => (string) ($sub['status'] ?? 'trial'),
+            'gateway' => (string) ($sub['gateway'] ?? 'none'),
+            'gateway_subscription_id' => $gatewaySubId,
+            'started_at' => $this->nullableProvisioningDateTime($sub['started_at'] ?? null),
+            'next_billing_at' => $this->nullableProvisioningDateTime($sub['next_billing_at'] ?? null),
+            'ends_at' => $this->nullableProvisioningDateTime($sub['ends_at'] ?? null),
+        ];
+    }
+
+    private function nullableProvisioningDateTime(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (string) $value;
     }
 
     private function buildDbName(string $subdomain): string
