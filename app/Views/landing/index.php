@@ -95,6 +95,7 @@
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+            height: 44px;
         }
 
         .hero {
