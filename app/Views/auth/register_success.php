@@ -18,6 +18,7 @@
                     <?php
                     $slug = strtolower((string) ($planSlug ?? 'free'));
                     $isPaid = in_array($slug, ['basico', 'pro'], true);
+                    $tenantDomain = trim((string) ($tenantDomain ?? ''));
                     ?>
                     <?php if ($isPaid): ?>
                         <p class="text-secondary mb-0">
@@ -41,6 +42,13 @@
                             Nossa equipe pode entrar em contato pelo WhatsApp informado para alinhar detalhes, se necessario.
                         </p>
                     <?php endif; ?>
+                    <div class="alert alert-info mt-4 text-start">
+                        <strong>Provisionamento em andamento:</strong>
+                        estamos preparando seu ambiente dedicado.
+                        <?php if ($tenantDomain !== ''): ?>
+                            URL prevista: <code><?= esc($tenantDomain) ?></code>.
+                        <?php endif; ?>
+                    </div>
                     <div class="mt-4">
                         <a href="/" class="btn btn-primary w-100">Voltar ao inicio</a>
                     </div>

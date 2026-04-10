@@ -13,6 +13,8 @@ Projeto base em CodeIgniter 4 para evolucao da aplicacao de confeitaria, com mod
 - Migrations iniciais para tabelas:
   - `precificacoes`
   - `pedidos`
+- Provisionamento de tenants (wildcard + DB dedicado):
+  - veja `docs/aws-provisioning-wildcard.md`
 
 ## Como rodar no XAMPP
 

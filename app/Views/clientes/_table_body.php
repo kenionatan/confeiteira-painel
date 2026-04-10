@@ -18,7 +18,27 @@
                 }
                 ?>
             </td>
-            <td class="text-secondary"><?= esc($cliente['created_at'] ?? '—') ?></td>
+            <td class="text-secondary">
+                <?= esc($cliente['created_at'] ?? '—') ?>
+                <?php
+                $tenantStatus = (string) ($cliente['tenant_status'] ?? '');
+                if ($tenantStatus !== '') {
+                    $statusLabel = match ($tenantStatus) {
+                        'ready' => 'Ambiente pronto',
+                        'failed' => 'Provisionamento falhou',
+                        'provisioning' => 'Provisionando',
+                        default => 'Pendente',
+                    };
+                    $statusClass = match ($tenantStatus) {
+                        'ready' => 'success',
+                        'failed' => 'danger',
+                        'provisioning' => 'warning',
+                        default => 'secondary',
+                    };
+                    echo '<div><span class="badge bg-' . esc($statusClass) . '-lt mt-1">' . esc($statusLabel) . '</span></div>';
+                }
+                ?>
+            </td>
         </tr>
     <?php endforeach; ?>
 <?php endif; ?>

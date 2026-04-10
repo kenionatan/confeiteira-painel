@@ -8,6 +8,7 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/', 'LandingController::index');
 $routes->get('/assinar/(:segment)', 'CheckoutController::redirect/$1');
 $routes->post('webhooks/stripe', 'StripeWebhookController::stripe');
+$routes->post('provisioning/callback', 'ProvisioningController::callback');
 
 $routes->group('painel', static function ($routes) {
     $routes->get('login', 'AuthController::login');

@@ -6,6 +6,7 @@ use App\Models\ClienteModel;
 use App\Models\PlanModel;
 use App\Models\SubscriptionModel;
 use App\Models\UserModel;
+use App\Services\TenantProvisioningService;
 use CodeIgniter\Database\Exceptions\DatabaseException;
 use Stripe\StripeClient;
 
@@ -205,6 +206,7 @@ class AuthController extends BaseController
                 'whatsapp' => $this->request->getPost('whatsapp'),
                 'email' => $email,
                 'stripe_customer_id' => $stripeCustomerId,
+                'tenant_status' => 'pending',
                 'senha_hash' => $senhaHash,
                 'cartao_token' => $cardToken !== '' ? $cardToken : 'pending_gateway',
                 'cartao_ultimos4' => $cardLast4 !== '' ? $cardLast4 : '0000',
@@ -221,6 +223,14 @@ class AuthController extends BaseController
                 'next_billing_at' => null,
                 'ends_at' => null,
             ]);
+
+            (new TenantProvisioningService())->queueForCliente([
+                'id' => $clienteId,
+                'dominio' => $dominioCompleto,
+                'nome' => (string) $this->request->getPost('name'),
+                'email' => $email,
+                'whatsapp' => (string) $this->request->getPost('whatsapp'),
+            ]);
         } catch (DatabaseException $e) {
             $db->transRollback();
             return redirect()->back()->withInput()->with('errors', ['Falha ao concluir cadastro. Tente novamente.']);
@@ -235,7 +245,8 @@ class AuthController extends BaseController
         return redirect()->to('/painel/cadastro/obrigado')
             ->with('register_email', $email)
             ->with('register_plan_nome', $planRow['nome'] ?? 'Free')
-            ->with('register_plan_slug', $planSlug);
+            ->with('register_plan_slug', $planSlug)
+            ->with('register_tenant_domain', $dominioCompleto);
     }
 
     /**
@@ -542,6 +553,7 @@ class AuthController extends BaseController
                     'whatsapp' => $this->request->getPost('whatsapp'),
                     'email' => $email,
                     'stripe_customer_id' => $customerId,
+                    'tenant_status' => 'pending',
                     'senha_hash' => $senhaHash,
                     'cartao_token' => $cardToken !== '' ? $cardToken : 'stripe',
                     'cartao_ultimos4' => $cardLast4 !== '' ? $cardLast4 : '0000',
@@ -558,6 +570,14 @@ class AuthController extends BaseController
                     'next_billing_at' => $periodEnd ? date('Y-m-d H:i:s', $periodEnd) : null,
                     'ends_at' => null,
                 ]);
+
+                (new TenantProvisioningService())->queueForCliente([
+                    'id' => $clienteId,
+                    'dominio' => $dominioCompleto,
+                    'nome' => (string) $this->request->getPost('name'),
+                    'email' => $email,
+                    'whatsapp' => (string) $this->request->getPost('whatsapp'),
+                ]);
             } catch (DatabaseException $e) {
                 $db->transRollback();
                 return $this->jsonError('Falha ao salvar cadastro. Entre em contato com o suporte.', 500);
@@ -571,6 +591,7 @@ class AuthController extends BaseController
             session()->setFlashdata('register_email', $email);
             session()->setFlashdata('register_plan_nome', $planRow['nome'] ?? $planSlug);
             session()->setFlashdata('register_plan_slug', $planSlug);
+            session()->setFlashdata('register_tenant_domain', $dominioCompleto);
 
             return $this->response->setJSON([
                 'ok' => true,
@@ -588,6 +609,7 @@ class AuthController extends BaseController
             'email' => session()->getFlashdata('register_email'),
             'planNome' => session()->getFlashdata('register_plan_nome'),
             'planSlug' => session()->getFlashdata('register_plan_slug'),
+            'tenantDomain' => session()->getFlashdata('register_tenant_domain'),
         ]);
     }
 
