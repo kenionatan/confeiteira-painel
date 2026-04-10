@@ -10,6 +10,12 @@ set -euo pipefail
 # - faz callback para o painel
 #
 # Atenção: adapte para seu ambiente e hardening.
+#
+# Admin do portal (mesmo e-mail/senha do cadastro no painel):
+#   export TENANT_ADMIN_EMAIL="cliente@exemplo.com"
+#   export TENANT_ADMIN_PASSWORD_HASH="<bcrypt vindo do painel no JSON tenant_admin_password_hash>"
+#   export TENANT_ADMIN_NAME="Nome do Cliente"   # opcional
+# O painel envia hash em clientes.senha_hash; não envie senha em texto plano.
 
 SUBDOMAIN="${1:-}"
 DB_NAME="${2:-}"
@@ -37,10 +43,26 @@ MYSQL_ADMIN_PASS="${MYSQL_ADMIN_PASS:-}"
 DB_USER="$SUBDOMAIN"
 DB_PASS="$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 24)"
 
+# Roda como www-data quando o script é executado como root/outro usuário (ex.: provisionador via Apache).
+run_as_www_data() {
+  local wuid
+  wuid="$(id -u www-data 2>/dev/null || true)"
+  if [[ -n "$wuid" && "$(id -u)" != "$wuid" ]]; then
+    sudo -u www-data -- "$@"
+  else
+    "$@"
+  fi
+}
+
+# CREATE USER IF NOT EXISTS não atualiza senha em reexecução; ALTER USER mantém MySQL e .env iguais.
 mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_ADMIN_USER" -p"$MYSQL_ADMIN_PASS" <<SQL
 CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';
+ALTER USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
+CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';
+ALTER USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
@@ -63,14 +85,80 @@ database.default.username = ${DB_USER}
 database.default.password = ${DB_PASS}
 database.default.DBDriver = MySQLi
 database.default.port = ${MYSQL_PORT}
+cupomfiscal.ollamaBaseUrl = http://127.0.0.1:11434
+cupomfiscal.ollamaModel = glm-ocr
+cupomfiscal.iaProvider = ocrspace
+cupomfiscal.ocrSpaceApiKey = K82986800088957
 EOF
 
 if [[ -f "$APP_DIR/composer.json" ]]; then
-  composer --working-dir="$APP_DIR" install --no-dev --optimize-autoloader || true
+  run_as_www_data composer --working-dir="$APP_DIR" install --no-dev --optimize-autoloader || true
 fi
 
 if [[ -f "$APP_DIR/spark" ]]; then
-  php "$APP_DIR/spark" migrate -n App || php "$APP_DIR/spark" migrate
+  run_as_www_data php "$APP_DIR/spark" migrate -n App || run_as_www_data php "$APP_DIR/spark" migrate
+fi
+
+# Atualiza o primeiro usuário do portal (seed/migrations) com e-mail e hash do cadastro no painel.
+# Espera tabela `users` com colunas email, password_hash, name (CodeIgniter 4 comum).
+if [[ -n "${TENANT_ADMIN_EMAIL:-}" && -n "${TENANT_ADMIN_PASSWORD_HASH:-}" ]]; then
+  export MYSQL_HOST MYSQL_PORT DB_NAME DB_USER DB_PASS
+  export TENANT_ADMIN_EMAIL TENANT_ADMIN_PASSWORD_HASH
+  export TENANT_ADMIN_NAME="${TENANT_ADMIN_NAME:-Administrador}"
+  run_as_www_data env MYSQL_HOST="$MYSQL_HOST" MYSQL_PORT="$MYSQL_PORT" \
+    TENANT_DB_NAME="$DB_NAME" TENANT_DB_USER="$DB_USER" TENANT_DB_PASS="$DB_PASS" \
+    TENANT_ADMIN_EMAIL="$TENANT_ADMIN_EMAIL" TENANT_ADMIN_PASSWORD_HASH="$TENANT_ADMIN_PASSWORD_HASH" \
+    TENANT_ADMIN_NAME="$TENANT_ADMIN_NAME" \
+    php <<'BOOTSTRAP_ADMIN'
+<?php
+declare(strict_types=1);
+
+$host = getenv('MYSQL_HOST') ?: '127.0.0.1';
+$port = (int) (getenv('MYSQL_PORT') ?: '3306');
+$db   = (string) getenv('TENANT_DB_NAME');
+$user = (string) getenv('TENANT_DB_USER');
+$pass = (string) getenv('TENANT_DB_PASS');
+$email = trim((string) getenv('TENANT_ADMIN_EMAIL'));
+$hash  = (string) getenv('TENANT_ADMIN_PASSWORD_HASH');
+$name  = trim((string) getenv('TENANT_ADMIN_NAME')) ?: 'Administrador';
+
+if ($email === '' || $hash === '' || $db === '') {
+    fwrite(STDERR, "tenant-admin-bootstrap: faltam dados; nada feito.\n");
+    exit(0);
+}
+
+$dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $host, $port, $db);
+$pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+
+$cols = $pdo->query("SHOW COLUMNS FROM `users`")->fetchAll(PDO::FETCH_COLUMN, 0);
+if (! in_array('password_hash', $cols, true) || ! in_array('email', $cols, true)) {
+    fwrite(STDERR, "tenant-admin-bootstrap: tabela users sem email/password_hash; adapte ao seu portal.\n");
+    exit(0);
+}
+
+$stmt = $pdo->query('SELECT MIN(id) FROM `users`');
+$firstId = $stmt ? (int) $stmt->fetchColumn() : 0;
+if ($firstId < 1) {
+    fwrite(STDERR, "tenant-admin-bootstrap: nenhum usuario em users; rode migrations primeiro.\n");
+    exit(0);
+}
+
+$sql = 'UPDATE `users` SET `email` = ?, `password_hash` = ?';
+$params = [$email, $hash];
+if (in_array('name', $cols, true)) {
+    $sql .= ', `name` = ?';
+    $params[] = $name;
+}
+if (in_array('updated_at', $cols, true)) {
+    $sql .= ', `updated_at` = ?';
+    $params[] = date('Y-m-d H:i:s');
+}
+$sql .= ' WHERE `id` = ?';
+$params[] = $firstId;
+
+$pdo->prepare($sql)->execute($params);
+fwrite(STDERR, "tenant-admin-bootstrap: usuario id {$firstId} atualizado para {$email}\n");
+BOOTSTRAP_ADMIN
 fi
 
 curl -sS -X POST "$CALLBACK_URL" \

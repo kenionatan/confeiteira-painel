@@ -94,6 +94,9 @@ Exemplo de corpo enviado pelo app:
   "requested_app_path": "/var/www/html/kenio",
   "portal_git_repo": "https://github.com/sua-org/seu-portal-cliente.git",
   "portal_git_ref": "main",
+  "tenant_admin_email": "kenio@appdoce.top",
+  "tenant_admin_name": "Kenio",
+  "tenant_admin_password_hash": "$2y$10$........................................",
   "cliente": {
     "nome": "Kenio",
     "email": "kenio@appdoce.top",
@@ -102,6 +105,8 @@ Exemplo de corpo enviado pelo app:
   }
 }
 ```
+
+`tenant_admin_password_hash` é o **bcrypt** já salvo em `clientes.senha_hash` no cadastro (mesma senha que o cliente digitou). O provisionador deve repassar isso ao script (por exemplo via variáveis de ambiente `TENANT_ADMIN_EMAIL`, `TENANT_ADMIN_NAME`, `TENANT_ADMIN_PASSWORD_HASH`) para, após `php spark migrate`, atualizar o primeiro usuário da tabela `users` do portal. Não envie senha em texto plano.
 
 ## 8) Contrato do callback (AWS -> app)
 
@@ -137,9 +142,10 @@ Status aceitos no callback: `provisioning`, `ready`, `failed`.
 5. criar pasta `/var/www/html/<subdominio>`;
 6. `git clone --branch <ref> <repo> /var/www/html/<subdominio>` (ou `git pull` se existir);
 7. gerar `.env` do portal com credenciais do DB recem criado;
-8. rodar migrations do portal (ex.: `php spark migrate`);
-9. callback para `/provisioning/callback` com `status=ready`;
-10. em erro, callback `status=failed`.
+8. rodar migrations do portal (ex.: `sudo -u www-data php spark migrate` quando o chamador for root);
+9. (opcional) aplicar `tenant_admin_*` no banco do tenant para o login do portal coincidir com o cadastro;
+10. callback para `/provisioning/callback` com `status=ready`;
+11. em erro, callback `status=failed`.
 
 ### Exemplo minimo de `.env` do portal (gerado)
 

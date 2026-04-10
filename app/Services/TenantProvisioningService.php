@@ -144,6 +144,9 @@ class TenantProvisioningService
             'requested_app_path' => $appPath,
             'portal_git_repo' => (string) $cfg->portalGitRepo,
             'portal_git_ref' => (string) $cfg->portalGitRef,
+            'tenant_admin_email' => strtolower(trim((string) ($cliente['email'] ?? ''))),
+            'tenant_admin_name' => trim((string) ($cliente['nome'] ?? '')),
+            'tenant_admin_password_hash' => (string) ($cliente['senha_hash'] ?? ''),
             'cliente' => [
                 'nome' => (string) ($cliente['nome'] ?? ''),
                 'email' => (string) ($cliente['email'] ?? ''),
