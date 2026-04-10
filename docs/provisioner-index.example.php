@@ -86,8 +86,15 @@ if (($data['action'] ?? '') === 'sync_subscription_only') {
     file_put_contents($tmp, json_encode($data['tenant_subscription'], JSON_UNESCAPED_UNICODE));
     chmod($tmp, 0644);
 
+    $tableOverride = getenv('TENANT_SUBSCRIPTIONS_TABLE') ?: '';
+    $tableEnv = '';
+    if ($tableOverride !== '' && preg_match('/^[a-zA-Z0-9_]+$/', $tableOverride) === 1) {
+        $tableEnv = 'TENANT_SUBSCRIPTIONS_TABLE=' . escapeshellarg($tableOverride) . ' ';
+    }
+
     $cmd = sprintf(
-        'TENANT_SUBSCRIPTION_JSON_FILE=%s TENANT_DB_NAME=%s MYSQL_HOST=%s MYSQL_PORT=%s MYSQL_ADMIN_USER=%s MYSQL_ADMIN_PASS=%s php %s 2>&1',
+        '%sTENANT_SUBSCRIPTION_JSON_FILE=%s TENANT_DB_NAME=%s MYSQL_HOST=%s MYSQL_PORT=%s MYSQL_ADMIN_USER=%s MYSQL_ADMIN_PASS=%s php %s 2>&1',
+        $tableEnv,
         escapeshellarg($tmp),
         escapeshellarg($dbName),
         escapeshellarg(getenv('MYSQL_HOST') ?: '127.0.0.1'),
@@ -113,7 +120,11 @@ if (($data['action'] ?? '') === 'sync_subscription_only') {
         exit;
     }
 
-    echo json_encode(['ok' => true, 'message' => 'subscriptions atualizada no tenant']);
+    echo json_encode([
+        'ok' => true,
+        'message' => 'subscriptions atualizada no tenant',
+        'log' => implode("\n", $output),
+    ]);
     exit;
 }
 

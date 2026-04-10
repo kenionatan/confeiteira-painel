@@ -29,6 +29,11 @@ class PushTenantSubscription extends BaseCommand
 
         if ($result['success']) {
             CLI::write($result['message'], 'green');
+            $decoded = json_decode($result['response_body'], true);
+            if (is_array($decoded) && ! empty($decoded['log'])) {
+                CLI::write('Log do provisionador:', 'cyan');
+                CLI::write((string) $decoded['log']);
+            }
         } else {
             CLI::write($result['message'], 'red');
             if ($result['http_code'] > 0) {

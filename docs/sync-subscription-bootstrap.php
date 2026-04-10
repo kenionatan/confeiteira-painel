@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * Atualiza a primeira linha de `subscriptions` no banco do tenant (seed free -> plano real).
+ * Atualiza a primeira linha da tabela de assinatura no banco do tenant (seed free -> plano real).
  *
  * Uso (credenciais do usuário do tenant — como no provision-tenant.sh):
  *   TENANT_DB_NAME=... TENANT_DB_USER=... TENANT_DB_PASS=... MYSQL_HOST=... MYSQL_PORT=...
@@ -12,6 +12,8 @@
  *   TENANT_DB_NAME=... MYSQL_ADMIN_USER=... MYSQL_ADMIN_PASS=... MYSQL_HOST=... MYSQL_PORT=...
  *   TENANT_SUBSCRIPTION_JSON_FILE=...
  *   php sync-subscription-bootstrap.php
+ *
+ * Opcional: TENANT_SUBSCRIPTIONS_TABLE=nome_fisico_da_tabela (se usar prefixo DB no portal, ex. app_subscriptions).
  */
 declare(strict_types=1);
 
@@ -63,28 +65,33 @@ if ($user === '') {
 }
 
 $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $host, $port, $dbName);
-$pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-
-$tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_NUM);
-$hasSubscriptions = false;
-foreach ($tables as $row) {
-    $t = (string) ($row[0] ?? '');
-    if (strcasecmp($t, 'subscriptions') === 0) {
-        $hasSubscriptions = true;
-        break;
-    }
+try {
+    $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+} catch (PDOException $e) {
+    fwrite(STDERR, 'sync-subscription-bootstrap: falha ao conectar ao MySQL: ' . $e->getMessage() . "\n");
+    exit(1);
 }
 
-if (! $hasSubscriptions) {
-    fwrite(STDERR, "sync-subscription-bootstrap: tabela subscriptions ausente.\n");
-    exit(0);
+$overrideTable = trim((string) (getenv('TENANT_SUBSCRIPTIONS_TABLE') ?: ''));
+if ($overrideTable !== '' && preg_match('/^[a-zA-Z0-9_]+$/', $overrideTable) !== 1) {
+    fwrite(STDERR, "sync-subscription-bootstrap: TENANT_SUBSCRIPTIONS_TABLE invalido.\n");
+    exit(1);
 }
 
-$stmt = $pdo->query('SELECT MIN(id) FROM `subscriptions`');
+$subscriptionsTable = $overrideTable !== '' ? $overrideTable : resolveSubscriptionsTableName($pdo);
+if ($subscriptionsTable === null) {
+    $listed = implode(', ', array_map(static fn ($r) => (string) ($r[0] ?? ''), $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_NUM)));
+    fwrite(STDERR, "sync-subscription-bootstrap: nenhuma tabela de assinatura encontrada (esperado *subscriptions* sem 'payment'). Tabelas: {$listed}\n");
+    exit(1);
+}
+
+$safeTable = str_replace('`', '', $subscriptionsTable);
+
+$stmt = $pdo->query('SELECT MIN(id) FROM `' . $safeTable . '`');
 $rowId = $stmt ? (int) $stmt->fetchColumn() : 0;
 if ($rowId < 1) {
-    fwrite(STDERR, "sync-subscription-bootstrap: subscriptions vazia.\n");
-    exit(0);
+    fwrite(STDERR, "sync-subscription-bootstrap: tabela {$subscriptionsTable} vazia.\n");
+    exit(1);
 }
 
 $allowedStatus = ['trial', 'active', 'past_due', 'cancelled'];
@@ -121,12 +128,15 @@ $next = $nullOrString($data['next_billing_at'] ?? null);
 $ends = $nullOrString($data['ends_at'] ?? null);
 $now = date('Y-m-d H:i:s');
 
-$sql = 'UPDATE `subscriptions` SET
+$qTable = '`' . $safeTable . '`';
+
+$sql = "UPDATE {$qTable} SET
     `plan_slug` = ?, `plan_name` = ?, `status` = ?, `gateway` = ?, `gateway_subscription_id` = ?,
     `started_at` = ?, `next_billing_at` = ?, `ends_at` = ?, `updated_at` = ?
-    WHERE `id` = ?';
+    WHERE `id` = ?";
 
-$pdo->prepare($sql)->execute([
+$st = $pdo->prepare($sql);
+$st->execute([
     $planSlug,
     $planName,
     $status,
@@ -139,4 +149,52 @@ $pdo->prepare($sql)->execute([
     $rowId,
 ]);
 
-fwrite(STDERR, "sync-subscription-bootstrap: subscriptions id {$rowId} atualizado ({$planSlug}).\n");
+if ($st->rowCount() < 1) {
+    fwrite(STDERR, "sync-subscription-bootstrap: UPDATE nao alterou linhas (id={$rowId}, tabela={$subscriptionsTable}).\n");
+    exit(1);
+}
+
+fwrite(STDERR, "sync-subscription-bootstrap: {$subscriptionsTable} id {$rowId} atualizado ({$planSlug}).\n");
+
+/**
+ * Descobre o nome físico da tabela: exatamente "subscriptions" (qualquer casing) ou termina em "subscriptions" (ex.: prefixo CI).
+ *
+ * @return non-empty-string|null
+ */
+function resolveSubscriptionsTableName(PDO $pdo): ?string
+{
+    $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_NUM);
+    $exact = null;
+    $candidates = [];
+
+    foreach ($tables as $row) {
+        $t = (string) ($row[0] ?? '');
+        if ($t === '') {
+            continue;
+        }
+        if (strcasecmp($t, 'subscriptions') === 0) {
+            $exact = $t;
+            break;
+        }
+        $lower = strtolower($t);
+        if (! str_ends_with($lower, 'subscriptions')) {
+            continue;
+        }
+        if (str_contains($lower, 'subscription_payment') || str_contains($lower, 'subscriptionpay')) {
+            continue;
+        }
+        $candidates[] = $t;
+    }
+
+    if ($exact !== null) {
+        return $exact;
+    }
+
+    if ($candidates === []) {
+        return null;
+    }
+
+    sort($candidates, SORT_STRING);
+
+    return $candidates[0];
+}

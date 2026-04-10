@@ -193,6 +193,8 @@ php spark tenants:push-subscription <cliente_id>
 
 O painel envia `action: sync_subscription_only` para `provisioning.dispatchUrl`. O `docs/provisioner-index.example.php` trata isso com `MYSQL_ADMIN_*` e `docs/sync-subscription-bootstrap.php`.
 
+Se o portal usar **prefixo de tabela** no MySQL (ex. `app_subscriptions`), defina no ambiente do provisionador `TENANT_SUBSCRIPTIONS_TABLE=app_subscriptions` ou atualize o script `sync-subscription-bootstrap.php` no servidor (ele tenta detectar tabelas que terminam em `subscriptions`).
+
 ## 12) Observacoes importantes para seu cenario
 
 - Com wildcard DNS, qualquer subdominio resolve no DNS, mas so os cadastrados devem funcionar na app.
