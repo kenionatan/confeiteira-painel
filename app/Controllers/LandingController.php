@@ -2,15 +2,22 @@
 
 namespace App\Controllers;
 
+use DateTimeImmutable;
+use DateTimeInterface;
+use DateTimeZone;
+
 class LandingController extends BaseController
 {
     public function index(): string
     {
-        $subscriptions = config('Subscriptions');
+        $tz = new DateTimeZone('America/Sao_Paulo');
+        $offerEndsAt = (new DateTimeImmutable('now', $tz))
+            ->modify('+90 minutes')
+            ->format(DateTimeInterface::ATOM);
 
         return view('landing/index', [
             'title'       => 'Confeiteira Pro',
-            'offerEndsAt' => $subscriptions->offerEndsAt,
+            'offerEndsAt' => $offerEndsAt,
             'plans'       => [
                 'free' => [
                     'nome'          => 'Free',

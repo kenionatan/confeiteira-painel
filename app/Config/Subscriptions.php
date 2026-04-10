@@ -18,8 +18,6 @@ class Subscriptions extends BaseConfig
     public string $stripePriceBasico = '';
     public string $stripePricePro = '';
 
-    public string $offerEndsAt = '2026-12-31T23:59:59-03:00';
-
     /**
      * Destinos do botao Assinar na landing (/assinar/:plano).
      * Planos pagos apontam para o cadastro no painel com o mesmo fluxo do Free + cobranca Stripe.

@@ -394,7 +394,7 @@
                                 </ul>
                                 <a class="btn btn-brand w-100" href="/assinar/pro">Assinar Plano Pro</a>
                                 <p class="text-secondary mb-0">
-                                    Checkout com PIX, boleto e cartão para assinatura recorrente.
+                                    Pagamento com cartão seguro para assinatura recorrente.
                                 </p>
                             </div>
                         </div>
@@ -423,7 +423,7 @@
                         <div class="benefit-card reveal">
                             <div class="benefit-icon">02</div>
                             <h4 class="text-white">Checkout otimizado</h4>
-                            <p class="text-secondary mb-0">Fluxo rápido para assinatura e renovação com meios de pagamento locais.</p>
+                            <p class="text-secondary mb-0">Fluxo rápido para assinatura e renovação com cartão.</p>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -509,7 +509,7 @@
             // Countdown da oferta
             const output = document.getElementById('offer-countdown');
             const targetDate = new Date('<?= esc($offerEndsAt ?? '') ?>').getTime();
-            if (output && targetDate) {
+            if (output && !Number.isNaN(targetDate)) {
                 const render = () => {
                     const now = Date.now();
                     const diff = targetDate - now;
@@ -521,8 +521,14 @@
                     const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
                     const mins = Math.floor((diff / (1000 * 60)) % 60);
                     const secs = Math.floor((diff / 1000) % 60);
-                    output.textContent =
-                        `${String(days).padStart(2, '0')}d ${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+                    const totalHours = Math.floor(diff / (1000 * 60 * 60));
+                    if (days > 0) {
+                        output.textContent =
+                            `${String(days).padStart(2, '0')}d ${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+                    } else {
+                        output.textContent =
+                            `${String(totalHours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    }
                 };
                 render();
                 setInterval(render, 1000);
