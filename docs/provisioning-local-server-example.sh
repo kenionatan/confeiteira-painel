@@ -19,6 +19,12 @@ export GIT_TERMINAL_PROMPT=0
 # Copie sync-subscription-bootstrap.php para o mesmo diretório deste script (ou defina SUBSCRIPTION_BOOTSTRAP_PHP).
 #
 # Atenção: adapte para seu ambiente e hardening.
+#
+# Requisitos comuns quando o clone falha (exit 255):
+# - O usuário que executa este script (ex.: www-data via PHP) precisa de escrita em $(dirname APP_DIR), ex.: /srv/tenants
+#   sudo mkdir -p /srv/tenants && sudo chown www-data:www-data /srv/tenants
+# - Repo SSH (git@...): chave deploy em ~www-data/.ssh (e host no known_hosts), ou use URL HTTPS público
+# - GIT_SSH_COMMAND acima usa StrictHostKeyChecking=yes — o primeiro clone exige o host já conhecido pelo usuário
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUBSCRIPTION_BOOTSTRAP_PHP="${SUBSCRIPTION_BOOTSTRAP_PHP:-$SCRIPT_DIR/sync-subscription-bootstrap.php}"
@@ -60,23 +66,52 @@ run_as_www_data() {
   fi
 }
 
-# CREATE USER IF NOT EXISTS não atualiza senha em reexecução; ALTER USER mantém MySQL e .env iguais.
-mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_ADMIN_USER" -p"$MYSQL_ADMIN_PASS" <<SQL
+# MySQL: evita -p na linha de comando (aviso "Using a password on the command line...").
+MYSQL_CNF="$(mktemp)"
+chmod 600 "$MYSQL_CNF"
+{
+  echo '[client]'
+  echo "user=${MYSQL_ADMIN_USER}"
+  echo "host=${MYSQL_HOST}"
+  echo "port=${MYSQL_PORT}"
+  if [[ -n "${MYSQL_ADMIN_PASS}" ]]; then
+    echo "password=${MYSQL_ADMIN_PASS}"
+  fi
+} >"$MYSQL_CNF"
+mysql --defaults-file="$MYSQL_CNF" <<SQL
 CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';
 ALTER USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
 FLUSH PRIVILEGES;
 SQL
+rm -f "$MYSQL_CNF"
 
-mkdir -p "$APP_DIR"
+PARENT_DIR="$(dirname "$APP_DIR")"
+if ! mkdir -p "$PARENT_DIR" 2>/dev/null; then
+  echo "Erro: nao foi possivel criar diretorio pai: ${PARENT_DIR}" >&2
+  exit 1
+fi
+if [[ ! -w "$PARENT_DIR" ]]; then
+  echo "Erro: sem permissao de escrita em ${PARENT_DIR} (usuario $(whoami)). Ajuste dono/grupo, ex.: chown www-data ${PARENT_DIR}" >&2
+  exit 1
+fi
+
 if [[ -d "$APP_DIR/.git" ]]; then
+  echo "Atualizando repo existente em ${APP_DIR} (ref ${PORTAL_REF})..." >&2
   git -C "$APP_DIR" fetch --all --prune
   git -C "$APP_DIR" checkout "$PORTAL_REF"
-  git -C "$APP_DIR" pull --ff-only origin "$PORTAL_REF"
+  git -C "$APP_DIR" pull --ff-only origin "$PORTAL_REF" || {
+    echo "Erro: git pull falhou em ${APP_DIR}. Verifique rede, branch e permissoes." >&2
+    exit 1
+  }
 else
   rm -rf "$APP_DIR"
-  git clone --branch "$PORTAL_REF" "$PORTAL_REPO" "$APP_DIR"
+  echo "Clonando ${PORTAL_REPO} -> ${APP_DIR} (branch ${PORTAL_REF})..." >&2
+  if ! git clone --branch "$PORTAL_REF" "$PORTAL_REPO" "$APP_DIR"; then
+    echo "Erro: git clone falhou. Causas frequentes: URL/repo inexistente; SSH sem chave para o usuario $(whoami); host nao esta em known_hosts (StrictHostKeyChecking); ou sem espaco em disco." >&2
+    exit 1
+  fi
 fi
 
 cat > "$APP_DIR/.env" <<EOF
