@@ -130,31 +130,150 @@ $now = date('Y-m-d H:i:s');
 
 $qTable = '`' . $safeTable . '`';
 
-$sql = "UPDATE {$qTable} SET
-    `plan_slug` = ?, `plan_name` = ?, `status` = ?, `gateway` = ?, `gateway_subscription_id` = ?,
-    `started_at` = ?, `next_billing_at` = ?, `ends_at` = ?, `updated_at` = ?
-    WHERE `id` = ?";
+/** @var array<string, string> coluna logica (minuscula) => nome fisico na tabela */
+$physicalCols = subscriptionTablePhysicalColumns($pdo, $safeTable);
+if ($physicalCols === []) {
+    fwrite(STDERR, "sync-subscription-bootstrap: nao foi possivel ler colunas de {$subscriptionsTable}.\n");
+    exit(1);
+}
 
-$st = $pdo->prepare($sql);
-$st->execute([
-    $planSlug,
-    $planName,
-    $status,
-    $gateway,
-    $gwSub,
-    $started,
-    $next,
-    $ends,
-    $now,
-    $rowId,
-]);
+$values = [
+    'plan_slug' => $planSlug,
+    'plan_name' => $planName,
+    'status' => $status,
+    'gateway' => $gateway,
+    'gateway_subscription_id' => $gwSub,
+    'started_at' => $started,
+    'next_billing_at' => $next,
+    'ends_at' => $ends,
+    'updated_at' => $now,
+];
 
-if ($st->rowCount() < 1) {
-    fwrite(STDERR, "sync-subscription-bootstrap: UPDATE nao alterou linhas (id={$rowId}, tabela={$subscriptionsTable}).\n");
+$setParts = [];
+$params = [];
+foreach ($values as $logical => $val) {
+    $phys = $physicalCols[strtolower($logical)] ?? null;
+    if ($phys === null) {
+        continue;
+    }
+    $setParts[] = '`' . str_replace('`', '', $phys) . '` = ?';
+    $params[] = $val;
+}
+
+if ($setParts === []) {
+    fwrite(STDERR, 'sync-subscription-bootstrap: nenhuma coluna conhecida (plan_slug, plan_name, status, ...) existe na tabela. Colunas: '
+        . implode(', ', array_values($physicalCols)) . "\n");
+    exit(1);
+}
+
+$params[] = $rowId;
+$sql = 'UPDATE ' . $qTable . ' SET ' . implode(', ', $setParts) . ' WHERE `id` = ?';
+
+try {
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+} catch (PDOException $e) {
+    fwrite(STDERR, 'sync-subscription-bootstrap: erro no UPDATE: ' . $e->getMessage() . "\nSQL: {$sql}\n");
+    exit(1);
+}
+
+$affected = $st->rowCount();
+if ($affected < 1) {
+    // MySQL pode retornar 0 linhas "alteradas" quando os valores ja eram iguais; confere leitura.
+    if (subscriptionRowMatches($pdo, $safeTable, $rowId, $physicalCols, $planSlug, $status, $gateway, $gwSub, $planName)) {
+        fwrite(STDERR, "sync-subscription-bootstrap: {$subscriptionsTable} id {$rowId} ja estava alinhado ({$planSlug}).\n");
+
+        exit(0);
+    }
+    fwrite(STDERR, "sync-subscription-bootstrap: UPDATE nao alterou linhas nem conferiu dados (id={$rowId}, tabela={$subscriptionsTable}).\n");
     exit(1);
 }
 
 fwrite(STDERR, "sync-subscription-bootstrap: {$subscriptionsTable} id {$rowId} atualizado ({$planSlug}).\n");
+
+/**
+ * @return array<string, string> chave em minusculo => nome fisico do campo (Field)
+ */
+function subscriptionTablePhysicalColumns(PDO $pdo, string $safeTable): array
+{
+    $t = str_replace('`', '', $safeTable);
+    $st = $pdo->query('SHOW COLUMNS FROM `' . $t . '`');
+    if (! $st) {
+        return [];
+    }
+    $out = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $f = (string) ($row['Field'] ?? '');
+        if ($f !== '') {
+            $out[strtolower($f)] = $f;
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * Confere se a linha do tenant ja reflete o payload (para rowCount=0 apos UPDATE idempotente).
+ *
+ * @param array<string, string> $physicalCols
+ */
+function subscriptionRowMatches(
+    PDO $pdo,
+    string $safeTable,
+    int $rowId,
+    array $physicalCols,
+    string $planSlug,
+    string $status,
+    string $gateway,
+    ?string $gwSub,
+    ?string $planName = null
+): bool {
+    $t = str_replace('`', '', $safeTable);
+    $st = $pdo->prepare('SELECT * FROM `' . $t . '` WHERE `id` = ? LIMIT 1');
+    $st->execute([$rowId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    if (! is_array($row)) {
+        return false;
+    }
+
+    $slugKey = $physicalCols['plan_slug'] ?? null;
+    if ($slugKey !== null) {
+        $v = strtolower(trim((string) ($row[$slugKey] ?? '')));
+        if ($v !== strtolower($planSlug)) {
+            return false;
+        }
+    }
+
+    $stKey = $physicalCols['status'] ?? null;
+    if ($stKey !== null && strtolower((string) ($row[$stKey] ?? '')) !== strtolower($status)) {
+        return false;
+    }
+
+    $gwKey = $physicalCols['gateway'] ?? null;
+    if ($gwKey !== null && strtolower((string) ($row[$gwKey] ?? '')) !== strtolower($gateway)) {
+        return false;
+    }
+
+    $gsKey = $physicalCols['gateway_subscription_id'] ?? null;
+    if ($gsKey !== null) {
+        $dbGs = $row[$gsKey] ?? null;
+        $dbGs = ($dbGs !== null && $dbGs !== '') ? (string) $dbGs : null;
+        if ($dbGs !== $gwSub) {
+            return false;
+        }
+    }
+
+    $nameKey = $physicalCols['plan_name'] ?? null;
+    if ($nameKey !== null) {
+        $want = ($planName === null || $planName === '') ? '' : trim((string) $planName);
+        $got = trim((string) ($row[$nameKey] ?? ''));
+        if ($want !== $got) {
+            return false;
+        }
+    }
+
+    return $slugKey !== null || $stKey !== null || $gwKey !== null || $gsKey !== null || $nameKey !== null;
+}
 
 /**
  * Descobre o nome físico da tabela: exatamente "subscriptions" (qualquer casing) ou termina em "subscriptions" (ex.: prefixo CI).

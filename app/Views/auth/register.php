@@ -209,9 +209,6 @@
                         </div>
                     </form>
                 </div>
-                <div class="card-body">
-                    <a href="/painel/login" class="btn btn-outline-secondary w-100">Voltar para login</a>
-                </div>
             </div>
         </div>
     </div>

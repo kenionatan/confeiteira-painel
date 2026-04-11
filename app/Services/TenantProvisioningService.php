@@ -204,7 +204,8 @@ class TenantProvisioningService
             'tenant_subscription' => $this->buildTenantSubscriptionPayload($clienteId),
         ];
 
-        $result = $this->postProvisionPayloadResult($body, 30);
+        // exec php no provisionador pode demorar mais que o dispatch principal
+        $result = $this->postProvisionPayloadResult($body, 90);
         $code = $result['code'];
         $responseBody = $result['body'];
         if ($code === 0) {
@@ -372,9 +373,10 @@ class TenantProvisioningService
         try {
             $r = $this->dispatchSubscriptionSync($clienteId);
             if (! $r['success']) {
+                $body = substr((string) ($r['response_body'] ?? ''), 0, 800);
                 log_message(
                     'error',
-                    "dispatchSubscriptionSync após tenant ready (cliente_id={$clienteId}): {$r['message']} http={$r['http_code']}"
+                    "dispatchSubscriptionSync após tenant ready (cliente_id={$clienteId}): {$r['message']} http={$r['http_code']} body={$body}"
                 );
             }
         } catch (\Throwable $e) {
