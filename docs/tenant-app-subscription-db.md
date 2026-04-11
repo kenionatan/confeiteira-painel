@@ -68,7 +68,23 @@ ORDER BY sp.paid_at DESC, sp.id DESC;
 - **Webhook Stripe** (`invoice.paid` / `invoice.payment_succeeded`): grava a fatura recebida se já existir `subscriptions.gateway_subscription_id`.
 - **Checkout** (`checkout.session.completed`): após atualizar/inserir a assinatura, o painel sincroniza todas as faturas pagas da assinatura.
 
-Clientes antigos sem linhas precisam de **novo evento** no Stripe ou de um script de backfill consultando a API Stripe e chamando a mesma lógica.
+Clientes antigos sem linhas precisam de **novo evento** no Stripe ou de um backfill.
+
+### Backfill pelo painel (CLI)
+
+Com o Stripe configurado no `.env`, sincroniza todas as assinaturas `gateway = stripe` com `sub_*`:
+
+```bash
+php spark subscriptions:sync-payments
+```
+
+Só uma linha em `subscriptions` (id local):
+
+```bash
+php spark subscriptions:sync-payments 42
+```
+
+Em caso de erro de tabela ou SQL, veja `writable/logs/log-*.log`.
 
 ## Segurança
 
