@@ -579,12 +579,6 @@ class AuthController extends BaseController
                     'next_billing_at' => $periodEnd ? date('Y-m-d H:i:s', $periodEnd) : null,
                     'ends_at' => null,
                 ], true);
-
-                try {
-                    StripeInvoicePaymentRecorder::recordLatestPaidInvoiceForSubscription($stripe, $subId, $subscriptionLocalId);
-                } catch (\Throwable $e) {
-                    log_message('warning', 'subscription_payments após cadastro Stripe: ' . $e->getMessage());
-                }
             } catch (DatabaseException $e) {
                 $db->transRollback();
                 return $this->jsonError('Falha ao salvar cadastro. Entre em contato com o suporte.', 500);
@@ -593,6 +587,12 @@ class AuthController extends BaseController
             $db->transComplete();
             if (! $db->transStatus()) {
                 return $this->jsonError('Falha ao salvar cadastro.', 500);
+            }
+
+            try {
+                StripeInvoicePaymentRecorder::recordAllPaidInvoicesForSubscription($stripe, $subId, $subscriptionLocalId);
+            } catch (\Throwable $e) {
+                log_message('warning', 'subscription_payments após cadastro Stripe: ' . $e->getMessage());
             }
 
             try {

@@ -107,15 +107,30 @@ class StripeWebhookController extends BaseController
 
         if ($row) {
             $subscriptionModel->update($row['id'], $data);
+            $localSubscriptionId = (int) $row['id'];
         } else {
             $data['cliente_id'] = $cliente['id'];
-            $subscriptionModel->insert($data);
+            if (! $subscriptionModel->insert($data)) {
+                log_message('error', 'checkout.session.completed: falha ao inserir subscriptions para cliente_id=' . $cliente['id']);
+
+                return;
+            }
+            $localSubscriptionId = (int) $subscriptionModel->getInsertID();
+        }
+
+        try {
+            StripeInvoicePaymentRecorder::recordAllPaidInvoicesForSubscription($stripe, $subscriptionId, $localSubscriptionId);
+        } catch (\Throwable $e) {
+            log_message('warning', 'subscription_payments após checkout.session.completed: ' . $e->getMessage());
         }
     }
 
     private function handleInvoicePaid(object $invoice): void
     {
         $stripeSubId = $invoice->subscription ?? null;
+        if (is_object($stripeSubId) && isset($stripeSubId->id)) {
+            $stripeSubId = (string) $stripeSubId->id;
+        }
         if (! is_string($stripeSubId) || $stripeSubId === '') {
             return;
         }

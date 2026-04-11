@@ -51,7 +51,7 @@ class StripeInvoicePaymentRecorder
         }
 
         try {
-            $paymentModel->insert([
+            $ok = $paymentModel->insert([
                 'subscription_id'    => $localSubscriptionId,
                 'amount'               => $amount,
                 'currency'             => strtoupper((string) ($invoice->currency ?? 'brl')),
@@ -63,31 +63,53 @@ class StripeInvoicePaymentRecorder
                 'description'          => $desc !== '' ? substr($desc, 0, 500) : null,
                 'paid_at'              => $paidAt,
             ]);
-        } catch (DatabaseException) {
-            // idempotência / UNIQUE gateway_invoice_id
+            if ($ok === false) {
+                log_message('error', 'subscription_payments insert falhou (modelo): ' . json_encode($paymentModel->errors()));
+            }
+        } catch (DatabaseException $e) {
+            if (self::isDuplicateKeyException($e)) {
+                return;
+            }
+            log_message('error', 'subscription_payments insert DB: ' . $e->getMessage());
         }
     }
 
     /**
-     * Busca a última fatura paga da assinatura e grava em subscription_payments (cadastro integrado sem webhook ainda).
+     * Grava todas as faturas já pagas da assinatura Stripe (idempotente).
+     * Preferível a só "latest_invoice": o status da última fatura pode não ser "paid" ainda ou a API pode devolver só o id.
+     */
+    public static function recordAllPaidInvoicesForSubscription(StripeClient $stripe, string $stripeSubscriptionId, int $localSubscriptionId): void
+    {
+        $params = [
+            'subscription' => $stripeSubscriptionId,
+            'status'       => 'paid',
+            'limit'        => 100,
+        ];
+
+        $collection = $stripe->invoices->all($params);
+        foreach ($collection->autoPagingIterator() as $invoice) {
+            if (is_object($invoice)) {
+                self::recordIfNew($invoice, $localSubscriptionId);
+            }
+        }
+    }
+
+    /**
+     * @deprecated Use recordAllPaidInvoicesForSubscription; mantido como alias.
      */
     public static function recordLatestPaidInvoiceForSubscription(StripeClient $stripe, string $stripeSubscriptionId, int $localSubscriptionId): void
     {
-        $sub = $stripe->subscriptions->retrieve($stripeSubscriptionId, ['expand' => ['latest_invoice']]);
-        $inv = $sub->latest_invoice ?? null;
-        if ($inv === null) {
-            return;
-        }
-        if (is_string($inv) && $inv !== '') {
-            $inv = $stripe->invoices->retrieve($inv, ['expand' => ['lines']]);
-        }
-        if (! is_object($inv)) {
-            return;
-        }
-        if (($inv->status ?? '') !== 'paid') {
-            return;
-        }
+        self::recordAllPaidInvoicesForSubscription($stripe, $stripeSubscriptionId, $localSubscriptionId);
+    }
 
-        self::recordIfNew($inv, $localSubscriptionId);
+    private static function isDuplicateKeyException(DatabaseException $e): bool
+    {
+        $code = (string) $e->getCode();
+        $msg  = $e->getMessage();
+
+        return str_contains($msg, 'Duplicate')
+            || str_contains($msg, '1062')
+            || str_contains($msg, 'UNIQUE constraint')
+            || $code === '1062';
     }
 }
