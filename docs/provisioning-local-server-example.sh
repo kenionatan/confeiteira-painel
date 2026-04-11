@@ -146,6 +146,8 @@ if [[ -n "${TENANT_ADMIN_EMAIL:-}" && -n "${TENANT_ADMIN_PASSWORD_HASH:-}" ]]; t
     TENANT_DB_NAME="$DB_NAME" TENANT_DB_USER="$DB_USER" TENANT_DB_PASS="$DB_PASS" \
     TENANT_ADMIN_EMAIL="$TENANT_ADMIN_EMAIL" TENANT_ADMIN_PASSWORD_HASH="$TENANT_ADMIN_PASSWORD_HASH" \
     TENANT_ADMIN_NAME="$TENANT_ADMIN_NAME" \
+    TENANT_SUBSCRIPTION_JSON_FILE="${TENANT_SUBSCRIPTION_JSON_FILE:-}" \
+    SUBSCRIPTION_BOOTSTRAP_PHP="$SUBSCRIPTION_BOOTSTRAP_PHP" \
     php <<'BOOTSTRAP_ADMIN'
 <?php
 declare(strict_types=1);
@@ -195,11 +197,41 @@ $params[] = $firstId;
 
 $pdo->prepare($sql)->execute($params);
 fwrite(STDERR, "tenant-admin-bootstrap: usuario id {$firstId} atualizado para {$email}\n");
+
+// Assinatura: dados do painel em TENANT_SUBSCRIPTION_JSON_FILE — delega ao sync-subscription-bootstrap.php (UPDATE dinamico, MIN(id), etc.).
+$jsonPath = (string) (getenv('TENANT_SUBSCRIPTION_JSON_FILE') ?: '');
+$bootstrap = (string) (getenv('SUBSCRIPTION_BOOTSTRAP_PHP') ?: '');
+if ($jsonPath !== '' && is_readable($jsonPath)) {
+    if ($bootstrap === '' || ! is_readable($bootstrap)) {
+        fwrite(STDERR, "tenant-admin-bootstrap: SUBSCRIPTION_BOOTSTRAP_PHP ilegivel ou vazio: {$bootstrap}\n");
+        exit(1);
+    }
+    $phpBin = defined('PHP_BINARY') && is_string(PHP_BINARY) && PHP_BINARY !== '' ? PHP_BINARY : 'php';
+    $envPairs = [
+        'MYSQL_HOST' => $host,
+        'MYSQL_PORT' => (string) $port,
+        'TENANT_DB_NAME' => $db,
+        'TENANT_DB_USER' => $user,
+        'TENANT_DB_PASS' => $pass,
+        'TENANT_SUBSCRIPTION_JSON_FILE' => $jsonPath,
+    ];
+    $parts = ['env'];
+    foreach ($envPairs as $k => $v) {
+        $parts[] = $k . '=' . escapeshellarg($v);
+    }
+    $parts[] = escapeshellarg($phpBin);
+    $parts[] = escapeshellarg($bootstrap);
+    passthru(implode(' ', $parts) . ' 2>&1', $syncExit);
+    if ($syncExit !== 0) {
+        exit($syncExit);
+    }
+}
+
 BOOTSTRAP_ADMIN
 
 fi
 
-# Atualiza a linha de assinatura criada pelo seed da migration do portal (ex.: plano free -> plano real).
+# JSON ainda existe (admin nao rodou ou nao recebeu o arquivo no env): sync isolado.
 if [[ -n "${TENANT_SUBSCRIPTION_JSON_FILE:-}" && -f "${TENANT_SUBSCRIPTION_JSON_FILE}" ]]; then
   if [[ ! -f "$SUBSCRIPTION_BOOTSTRAP_PHP" ]]; then
     echo "Erro: $SUBSCRIPTION_BOOTSTRAP_PHP nao encontrado. Copie docs/sync-subscription-bootstrap.php do repositorio." >&2
@@ -209,7 +241,10 @@ if [[ -n "${TENANT_SUBSCRIPTION_JSON_FILE:-}" && -f "${TENANT_SUBSCRIPTION_JSON_
     TENANT_DB_NAME="$DB_NAME" TENANT_DB_USER="$DB_USER" TENANT_DB_PASS="$DB_PASS" \
     TENANT_SUBSCRIPTION_JSON_FILE="${TENANT_SUBSCRIPTION_JSON_FILE}" \
     php "$SUBSCRIPTION_BOOTSTRAP_PHP" || exit 1
-elif [[ -n "${TENANT_SUBSCRIPTION_B64:-}" ]]; then
+fi
+
+# Base64 (fluxo alternativo sem arquivo temporario).
+if [[ -n "${TENANT_SUBSCRIPTION_B64:-}" ]]; then
   if [[ ! -f "$SUBSCRIPTION_BOOTSTRAP_PHP" ]]; then
     echo "Erro: $SUBSCRIPTION_BOOTSTRAP_PHP nao encontrado." >&2
     exit 1
