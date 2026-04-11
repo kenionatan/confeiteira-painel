@@ -127,6 +127,14 @@ cupomfiscal.ollamaBaseUrl = http://127.0.0.1:11434
 cupomfiscal.ollamaModel = glm-ocr
 cupomfiscal.iaProvider = ocrspace
 cupomfiscal.ocrSpaceApiKey = K82986800088957
+billing.enabled = true
+billing.clienteId = ${CLIENT_ID}
+database.billing.hostname = ${MYSQL_HOST}
+database.billing.database = painel
+database.billing.username = painel
+database.billing.password = painel123
+database.billing.DBDriver = MySQLi
+database.billing.port = 3306
 EOF
 
 if [[ -f "$APP_DIR/composer.json" ]]; then
