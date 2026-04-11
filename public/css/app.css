@@ -191,10 +191,16 @@ html[data-theme="dark"] .form-select:-webkit-autofill {
     border: 0;
 }
 
+/* Top bar user menu: static dropdown + visible overflow so the panel is not clipped */
+header.navbar > .container-xl {
+    overflow: visible;
+}
+
 .dropdown-menu {
     border-radius: 12px;
     border-color: var(--border-main);
     background: var(--surface);
+    z-index: 1056;
 }
 
 .dropdown-item {

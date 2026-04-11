@@ -54,8 +54,8 @@
                                 </span>
                             </button>
                         </form>
-                        <div class="dropdown">
-                            <a href="#" class="nav-link d-flex lh-1 text-reset p-0 user-menu-toggle" data-bs-toggle="dropdown" aria-label="Open user menu">
+                        <div class="dropdown" data-bs-display="static">
+                            <a href="#" class="nav-link d-flex lh-1 text-reset p-0 user-menu-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menu do usuário">
                                 <span class="avatar avatar-sm"><?= esc(strtoupper(substr((string) current_user()['name'], 0, 1))) ?></span>
                                 <div class="d-none d-xl-block ps-2">
                                     <div><?= esc(current_user()['name']) ?></div>
@@ -148,7 +148,6 @@
     <?php endif; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/js/tabler.min.js"></script>
     <?= $this->renderSection('scripts') ?>
     <script>
         (() => {
