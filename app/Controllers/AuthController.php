@@ -6,6 +6,7 @@ use App\Models\ClienteModel;
 use App\Models\PlanModel;
 use App\Models\SubscriptionModel;
 use App\Models\UserModel;
+use App\Services\StripeInvoicePaymentRecorder;
 use App\Services\TenantProvisioningService;
 use CodeIgniter\Database\Exceptions\DatabaseException;
 use Stripe\StripeClient;
@@ -568,7 +569,7 @@ class AuthController extends BaseController
                     'cartao_bandeira' => $cardBrand !== '' ? $cardBrand : 'stripe',
                 ], true);
 
-                $subscriptionModel->insert([
+                $subscriptionLocalId = (int) $subscriptionModel->insert([
                     'cliente_id' => $clienteId,
                     'plan_id' => $planRow['id'],
                     'status' => $dbStatus,
@@ -577,7 +578,13 @@ class AuthController extends BaseController
                     'started_at' => date('Y-m-d H:i:s', $started),
                     'next_billing_at' => $periodEnd ? date('Y-m-d H:i:s', $periodEnd) : null,
                     'ends_at' => null,
-                ]);
+                ], true);
+
+                try {
+                    StripeInvoicePaymentRecorder::recordLatestPaidInvoiceForSubscription($stripe, $subId, $subscriptionLocalId);
+                } catch (\Throwable $e) {
+                    log_message('warning', 'subscription_payments após cadastro Stripe: ' . $e->getMessage());
+                }
             } catch (DatabaseException $e) {
                 $db->transRollback();
                 return $this->jsonError('Falha ao salvar cadastro. Entre em contato com o suporte.', 500);

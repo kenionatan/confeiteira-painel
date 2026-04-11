@@ -5,8 +5,7 @@ namespace App\Controllers;
 use App\Models\ClienteModel;
 use App\Models\PlanModel;
 use App\Models\SubscriptionModel;
-use App\Models\SubscriptionPaymentModel;
-use CodeIgniter\Database\Exceptions\DatabaseException;
+use App\Services\StripeInvoicePaymentRecorder;
 use Stripe\StripeClient;
 use Stripe\Webhook;
 
@@ -40,7 +39,7 @@ class StripeWebhookController extends BaseController
 
         match ($event->type) {
             'checkout.session.completed' => $this->handleCheckoutSessionCompleted($stripe, $event->data->object),
-            'invoice.paid' => $this->handleInvoicePaid($event->data->object),
+            'invoice.paid', 'invoice.payment_succeeded' => $this->handleInvoicePaid($event->data->object),
             default => null,
         };
 
@@ -126,58 +125,6 @@ class StripeWebhookController extends BaseController
             return;
         }
 
-        $invoiceId = $invoice->id ?? null;
-        if (! is_string($invoiceId) || $invoiceId === '') {
-            return;
-        }
-
-        $paymentModel = new SubscriptionPaymentModel();
-        if ($paymentModel->where('gateway_invoice_id', $invoiceId)->first()) {
-            return;
-        }
-
-        $amountPaid = (int) ($invoice->amount_paid ?? 0);
-        $amount = bcdiv((string) $amountPaid, '100', 2);
-
-        $periodStart = null;
-        $periodEnd = null;
-        $lines = $invoice->lines->data ?? [];
-        if ($lines !== [] && isset($lines[0]->period)) {
-            $p = $lines[0]->period;
-            if (isset($p->start)) {
-                $periodStart = date('Y-m-d H:i:s', (int) $p->start);
-            }
-            if (isset($p->end)) {
-                $periodEnd = date('Y-m-d H:i:s', (int) $p->end);
-            }
-        }
-
-        if (isset($invoice->status_transitions->paid_at) && $invoice->status_transitions->paid_at) {
-            $paidAt = date('Y-m-d H:i:s', (int) $invoice->status_transitions->paid_at);
-        } else {
-            $paidAt = date('Y-m-d H:i:s');
-        }
-
-        $desc = (string) ($invoice->description ?? '');
-        if ($desc === '' && isset($invoice->billing_reason)) {
-            $desc = (string) $invoice->billing_reason;
-        }
-
-        try {
-            $paymentModel->insert([
-                'subscription_id'    => $local['id'],
-                'amount'               => $amount,
-                'currency'             => strtoupper((string) ($invoice->currency ?? 'brl')),
-                'status'               => 'paid',
-                'period_start'         => $periodStart,
-                'period_end'           => $periodEnd,
-                'gateway'              => 'stripe',
-                'gateway_invoice_id'   => $invoiceId,
-                'description'          => $desc !== '' ? substr($desc, 0, 500) : null,
-                'paid_at'              => $paidAt,
-            ]);
-        } catch (DatabaseException) {
-            // Webhook reenviado ou corrida: fatura ja registrada (UNIQUE gateway_invoice_id).
-        }
+        StripeInvoicePaymentRecorder::recordIfNew($invoice, (int) $local['id']);
     }
 }
