@@ -51,6 +51,7 @@
     $submitDisabled = (($gateway ?? '') === 'stripe' && empty($stripePublicKey ?? ''))
         || (($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey ?? ''))
         || ($isPaidPlan && ($gateway ?? '') === 'mercado_pago');
+    $whatsappDigitsOld = preg_replace('/\D/', '', (string) (old('whatsapp') ?? ''));
     ?>
     <div class="page page-center register-page">
         <div class="container container-tight py-4 w-100">
@@ -113,8 +114,15 @@
                             <input type="text" name="name" value="<?= esc(old('name')) ?>" class="form-control" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">WhatsApp</label>
-                            <input type="text" name="whatsapp" value="<?= esc(old('whatsapp')) ?>" class="form-control" required placeholder="(11) 99999-9999">
+                            <label class="form-label" for="signup-whatsapp-display">Celular (WhatsApp)</label>
+                            <input type="tel" id="signup-whatsapp-display" class="form-control" required
+                                autocomplete="tel-national"
+                                inputmode="numeric"
+                                maxlength="15"
+                                placeholder="(00) 00000-0000"
+                                aria-describedby="signup-whatsapp-hint">
+                            <input type="hidden" name="whatsapp" id="signup-whatsapp-value" value="<?= esc($whatsappDigitsOld) ?>">
+                            <div id="signup-whatsapp-hint" class="form-hint">DDD + celular (10 ou 11 dígitos).</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">E-mail</label>
@@ -212,6 +220,78 @@
             </div>
         </div>
     </div>
+    <script>
+        (() => {
+            const display = document.getElementById('signup-whatsapp-display');
+            const hidden = document.getElementById('signup-whatsapp-value');
+            const form = document.getElementById('signup-form');
+            if (!display || !hidden || !form) {
+                return;
+            }
+
+            const digits = (s) => (String(s || '')).replace(/\D/g, '');
+
+            const format = (raw) => {
+                const d = digits(raw).slice(0, 11);
+                if (d.length === 0) {
+                    return '';
+                }
+                if (d.length <= 2) {
+                    return '(' + d;
+                }
+                const dd = d.slice(0, 2);
+                const rest = d.slice(2);
+                if (d.length <= 6) {
+                    return '(' + dd + ') ' + rest;
+                }
+                if (d.length <= 10) {
+                    return '(' + dd + ') ' + rest.slice(0, 4) + '-' + rest.slice(4, 8);
+                }
+
+                return '(' + dd + ') ' + rest.slice(0, 5) + '-' + rest.slice(5, 9);
+            };
+
+            const syncHidden = () => {
+                hidden.value = digits(display.value).slice(0, 11);
+            };
+
+            display.addEventListener('input', () => {
+                const pos = display.selectionStart;
+                const before = digits(display.value).length;
+                display.value = format(display.value);
+                syncHidden();
+                const after = digits(display.value).length;
+                let next = (pos || 0) + (after - before);
+                if (next < 0) {
+                    next = 0;
+                }
+                if (next > display.value.length) {
+                    next = display.value.length;
+                }
+                display.setSelectionRange(next, next);
+            });
+
+            display.addEventListener('blur', () => {
+                display.value = format(display.value);
+                syncHidden();
+            });
+
+            if (hidden.value) {
+                display.value = format(hidden.value);
+            }
+
+            form.addEventListener('submit', (e) => {
+                syncHidden();
+                const n = hidden.value.length;
+                if (n < 10 || n > 11) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    display.focus();
+                    alert('Informe o celular com DDD no formato (00) 00000-0000 (10 ou 11 dígitos).');
+                }
+            }, true);
+        })();
+    </script>
     <?php if (($gateway ?? 'mercado_pago') === 'mercado_pago'): ?>
     <script src="https://sdk.mercadopago.com/js/v2"></script>
     <script>
