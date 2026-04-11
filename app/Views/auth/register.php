@@ -251,24 +251,56 @@
                 return '(' + dd + ') ' + rest.slice(0, 5) + '-' + rest.slice(5, 9);
             };
 
+            /** Quantos dígitos existem à esquerda do índice `index` em `str`. */
+            const countDigitsLeftOf = (str, index) => {
+                let n = 0;
+                const lim = Math.min(Math.max(0, index), str.length);
+                for (let i = 0; i < lim; i++) {
+                    const ch = str[i];
+                    if (ch >= '0' && ch <= '9') {
+                        n++;
+                    }
+                }
+
+                return n;
+            };
+
+            /** Índice logo após o enésimo dígito (0 = início); se n > dígitos, fim da string. */
+            const caretAfterDigitCount = (str, n) => {
+                if (n <= 0) {
+                    return 0;
+                }
+                let seen = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const ch = str[i];
+                    if (ch >= '0' && ch <= '9') {
+                        seen++;
+                        if (seen === n) {
+                            return i + 1;
+                        }
+                    }
+                }
+
+                return str.length;
+            };
+
             const syncHidden = () => {
                 hidden.value = digits(display.value).slice(0, 11);
             };
 
             display.addEventListener('input', () => {
-                const pos = display.selectionStart;
-                const before = digits(display.value).length;
-                display.value = format(display.value);
+                const oldVal = display.value;
+                const pos = display.selectionStart ?? oldVal.length;
+                const digitsLeft = countDigitsLeftOf(oldVal, pos);
+
+                const newVal = format(oldVal);
+                display.value = newVal;
                 syncHidden();
-                const after = digits(display.value).length;
-                let next = (pos || 0) + (after - before);
-                if (next < 0) {
-                    next = 0;
-                }
-                if (next > display.value.length) {
-                    next = display.value.length;
-                }
-                display.setSelectionRange(next, next);
+
+                const caret = caretAfterDigitCount(newVal, digitsLeft);
+                requestAnimationFrame(() => {
+                    display.setSelectionRange(caret, caret);
+                });
             });
 
             display.addEventListener('blur', () => {
