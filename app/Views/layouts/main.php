@@ -31,6 +31,17 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/css/tabler.min.css">
     <link rel="stylesheet" href="/css/app.css">
     <style>:root{--accent-dynamic:<?= esc($buttonColor) ?>;}</style>
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-16541205225"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'AW-16541205225');
+    </script>
+
 </head>
 <body>
     <script>document.documentElement.setAttribute('data-theme', '<?= esc($theme) ?>');</script>
