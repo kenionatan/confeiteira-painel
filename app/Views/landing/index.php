@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= esc($title ?? 'Confeiteira Pro') ?></title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/css/tabler.min.css">
     <script>document.documentElement.classList.add('js');</script>
     <style>
@@ -393,7 +394,7 @@
                                     <!--<span class="badge badge-offer">Oferta por tempo limitado</span>-->
                                 </div>
                                 <h3 class="text-white mb-1">Gátis</h3>
-                                <p class="text-secondary mb-3">Precificação, cadastro de produtos e mais.</p>
+                                <p class="text-secondary mb-3">Tenha mais controle sobre sua confeitaria.</p>
                                 <!--<div class="plan-old">R$ 79,90/mês</div>-->
                                 <div class="plan-price mb-1">R$ 0,00</div>
                                 <ul class="feature-list mb-4">
@@ -401,7 +402,7 @@
                                     <li>Cadastro de produtos</li>
                                     <li>Mais</li>
                                 </ul>
-                                <a class="btn btn-brand w-100" href="/assinar/pro">Comece grátis</a>
+                                <a class="btn btn-brand w-100" href="/assinar/free">Comece grátis</a>
                                 <p class="text-secondary mb-0">
                                     Cadastro rápido e fácil.
                                 </p>
