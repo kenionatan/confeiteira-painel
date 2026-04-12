@@ -389,21 +389,21 @@
                             <img class="chart-corner" src="/images/chartchar.png" alt="Gráfico do plano Pro">
                             <div class="hero-panel popular-card p-3 p-md-4 tilt-card">
                                 <div class="mb-2">
-                                    <span class="badge badge-popular">Popular</span>
-                                    <span class="badge badge-offer">Oferta por tempo limitado</span>
+                                    <!--<span class="badge badge-popular">Popular</span>-->
+                                    <!--<span class="badge badge-offer">Oferta por tempo limitado</span>-->
                                 </div>
-                                <h3 class="text-white mb-1">Plano Pro</h3>
-                                <p class="text-secondary mb-3">O mais escolhido para ganhar velocidade e previsibilidade no faturamento.</p>
-                                <div class="plan-old">R$ 79,90/mês</div>
-                                <div class="plan-price mb-1">R$ 34,90<span class="fs-5 text-secondary">/mês</span></div>
+                                <h3 class="text-white mb-1">Gátis</h3>
+                                <p class="text-secondary mb-3">Precificação, cadastro de produtos e mais.</p>
+                                <!--<div class="plan-old">R$ 79,90/mês</div>-->
+                                <div class="plan-price mb-1">R$ 0,00</div>
                                 <ul class="feature-list mb-4">
-                                    <li>Tudo do Básico + recursos de IA</li>
-                                    <li>Sugestões inteligentes de cadastro</li>
-                                    <li>Novos recursos premium incluídos</li>
+                                    <li>Precificação</li>
+                                    <li>Cadastro de produtos</li>
+                                    <li>Mais</li>
                                 </ul>
-                                <a class="btn btn-brand w-100" href="/assinar/pro">Assinar Plano Pro</a>
+                                <a class="btn btn-brand w-100" href="/assinar/pro">Comece grátis</a>
                                 <p class="text-secondary mb-0">
-                                    Pagamento com cartão seguro para assinatura recorrente.
+                                    Cadastro rápido e fácil.
                                 </p>
                             </div>
                         </div>

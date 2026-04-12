@@ -23,12 +23,12 @@ class LandingController extends BaseController
                     'nome'          => 'Free',
                     'valor'         => 'R$ 0,00',
                     'valorAnterior' => '',
-                    'descricao'     => 'Precificação, cadastro de produtos e acesso por 7 dias.',
+                    'descricao'     => 'Precificação, cadastro de produtos e mais.',
                     'destaque'      => false,
                     'features'      => [
                         'Precificação',
                         'Cadastro de produtos',
-                        'Acesso por 7 dias',
+                        'Mais',
                     ],
                 ],
                 'basico' => [
