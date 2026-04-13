@@ -436,10 +436,13 @@
                             Controle clientes, pedidos e assinaturas em uma experiência moderna e rápida.
                         </p>
                         <div class="d-flex gap-2 flex-wrap">
-                            <a class="btn btn-brand btn-lg" href="#planos">Ver planos</a>
+                            <a class="btn btn-brand btn-lg hero-cta-glow" href="/assinar/free">Comece grátis</a>
                         </div>
                         <div class="mt-4 timer-box">
                             Oferta por tempo limitado termina em: <strong id="offer-countdown">--:--:--</strong>
+                        </div>
+                        <div class="mt-3">
+                            <a class="btn btn-brand btn-lg" href="#planos">Ver planos</a>
                         </div>
                     </div>
                     <div class="col-lg-5">
