@@ -265,6 +265,61 @@
             font-size: 0.95rem;
         }
 
+        .social-proof-toast {
+            position: fixed;
+            left: 1rem;
+            bottom: 1rem;
+            z-index: 45;
+            width: min(92vw, 350px);
+            padding: 0.9rem 1rem;
+            border-radius: 14px;
+            border: 1px solid rgba(34, 211, 238, 0.28);
+            background: linear-gradient(150deg, rgba(15, 23, 42, 0.95), rgba(11, 18, 34, 0.95));
+            box-shadow: 0 14px 30px rgba(2, 6, 23, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.15) inset;
+            color: #e2e8f0;
+            opacity: 0;
+            transform: translateY(18px);
+            pointer-events: none;
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+
+        .social-proof-toast.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .social-proof-title {
+            margin: 0 0 0.35rem;
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #a5f3fc;
+        }
+
+        .social-proof-message {
+            margin: 0;
+            font-size: 0.94rem;
+            line-height: 1.35;
+            color: #e2e8f0;
+        }
+
+        .social-proof-dot {
+            display: inline-block;
+            width: 0.5rem;
+            height: 0.5rem;
+            margin-right: 0.4rem;
+            border-radius: 999px;
+            background: #22d3ee;
+            box-shadow: 0 0 12px rgba(34, 211, 238, 0.85);
+            animation: socialProofPulse 1.5s ease-in-out infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes socialProofPulse {
+            0%, 100% { transform: scale(1); opacity: 0.85; }
+            50% { transform: scale(1.35); opacity: 1; }
+        }
+
         .section-title {
             color: #fff;
             font-size: clamp(1.8rem, 3vw, 2.6rem);
@@ -574,6 +629,11 @@
         </footer>
     </main>
 
+    <aside id="social-proof-toast" class="social-proof-toast" aria-live="polite" aria-atomic="true">
+        <p class="social-proof-title"><span class="social-proof-dot"></span>Atividade recente</p>
+        <p class="social-proof-message" id="social-proof-message"></p>
+    </aside>
+
     <script>
         (() => {
             // Countdown da oferta
@@ -672,6 +732,34 @@
                     card.style.transform = '';
                 });
             });
+
+            // Alertas de prova social (simulados)
+            const toast = document.getElementById('social-proof-toast');
+            const toastMessage = document.getElementById('social-proof-message');
+            if (toast && toastMessage) {
+                const firstNames = ['Carla', 'Ana', 'Mariana', 'Fernanda', 'Juliana', 'Camila', 'Rafaela', 'Patricia', 'Bruna', 'Gabriela'];
+                const neighborhoods = ['Centro', 'Vila Nova', 'Jardins', 'Boa Vista', 'Planalto', 'Alvorada', 'Santa Clara', 'Industrial'];
+                const cities = ['Sao Paulo', 'Campinas', 'Curitiba', 'Belo Horizonte', 'Goiania', 'Recife', 'Fortaleza', 'Porto Alegre'];
+                const actions = [
+                    'acabou de se cadastrar no plano Free',
+                    'acabou de assinar o plano Basico',
+                    'acabou de assinar o plano Pro',
+                    'finalizou o cadastro e ja iniciou o teste'
+                ];
+                const minuteHints = ['agora mesmo', 'ha 1 min', 'ha 2 min', 'ha 3 min', 'ha 5 min', 'ha 7 min'];
+
+                const pick = (list) => list[Math.floor(Math.random() * list.length)];
+                const buildMessage = () => `${pick(firstNames)} - ${pick(neighborhoods)}, ${pick(cities)} ${pick(actions)} (${pick(minuteHints)}).`;
+
+                const showToast = () => {
+                    toastMessage.textContent = buildMessage();
+                    toast.classList.add('is-visible');
+                    window.setTimeout(() => toast.classList.remove('is-visible'), 4200);
+                };
+
+                window.setTimeout(showToast, 1800);
+                window.setInterval(showToast, 9800);
+            }
         })();
     </script>
 </body>
