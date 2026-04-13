@@ -146,6 +146,56 @@
             transform: translateY(-1px);
         }
 
+        .hero-cta-glow {
+            position: relative;
+            overflow: hidden;
+            border: 0;
+            border-radius: 0.85rem;
+            padding: 0.92rem 1.2rem;
+            font-size: 1.08rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            background: linear-gradient(110deg, #8b5cf6 0%, #6d28d9 42%, #22d3ee 100%);
+            background-size: 180% 180%;
+            box-shadow: 0 18px 34px rgba(109, 40, 217, 0.45), 0 0 0 1px rgba(196, 181, 253, 0.2) inset;
+            transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+            animation: ctaGradientPulse 4.2s ease-in-out infinite;
+        }
+
+        .hero-cta-glow::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent 14%, rgba(255, 255, 255, 0.8) 50%, transparent 86%);
+            transform: translateX(-145%);
+            animation: ctaShine 2.9s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .hero-cta-glow:hover {
+            color: #fff;
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 24px 42px rgba(109, 40, 217, 0.56), 0 0 28px rgba(34, 211, 238, 0.22);
+            filter: saturate(1.08);
+        }
+
+        @keyframes ctaShine {
+            0%, 22% { transform: translateX(-145%); }
+            38%, 100% { transform: translateX(145%); }
+        }
+
+        @keyframes ctaGradientPulse {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .hero-cta-glow,
+            .hero-cta-glow::before {
+                animation: none;
+            }
+        }
+
         .hero-panel {
             background: linear-gradient(165deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.78) 100%);
             border: 1px solid rgba(148, 163, 184, 0.2);
@@ -409,7 +459,7 @@
                                     <li>Cadastro de produtos</li>
                                     <li>Mais</li>
                                 </ul>
-                                <a class="btn btn-brand w-100" href="/assinar/free">Comece grátis</a>
+                                <a class="btn btn-brand btn-lg w-100 hero-cta-glow" href="/assinar/free">Comece grátis</a>
                                 <p class="text-secondary mb-0">
                                     Cadastro rápido e fácil.
                                 </p>
