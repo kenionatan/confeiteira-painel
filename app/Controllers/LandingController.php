@@ -16,9 +16,10 @@ class LandingController extends BaseController
             ->format(DateTimeInterface::ATOM);
 
         return view('landing/index', [
-            'title'       => 'Confeiteira Pro',
-            'offerEndsAt' => $offerEndsAt,
-            'plans'       => [
+            'title'                  => 'Confeiteira Pro',
+            'offerEndsAt'            => $offerEndsAt,
+            'socialProofFakeClients' => $this->socialProofFakeClients(),
+            'plans'                  => [
                 'free' => [
                     'nome'          => 'Free',
                     'valor'         => 'R$ 0,00',
@@ -68,5 +69,34 @@ class LandingController extends BaseController
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Listas usadas nos alertas de prova social simulados na landing (fácil de editar aqui).
+     *
+     * @return array<string, list<string>>
+     */
+    private function socialProofFakeClients(): array
+    {
+        return [
+            'firstNames' => [
+                'Carla Cakes', 'anamaria_cakes', 'Júlia Confeitaria', 'Tudo Doces', 'Açaí Deus é amor', 'Camila', 'Rafaela', 'Açaiteria da Rose', 'Bruna', 'Gabriela',
+            ],
+            'neighborhoods' => [
+                'Centro', 'Vila Nova', 'Jardins', 'Boa Vista', 'Planalto', 'Alvorada', 'Santa Clara', 'Industrial',
+            ],
+            'cities' => [
+                'São Paulo', 'Jundiaí', 'Indaiatuba', 'Campinas', 'Curitiba', 'Belo Horizonte', 'Goiânia', 'Recife', 'Fortaleza', 'Porto Alegre',
+            ],
+            'actions' => [
+                'acabou de se cadastrar no plano Free',
+                'acabou de assinar o plano Básico',
+                'acabou de assinar o plano Pro',
+                'finalizou o cadastro e já iniciou o teste',
+            ],
+            'minuteHints' => [
+                'agora mesmo', 'há 1 min', 'há 2 min', 'há 3 min', 'há 5 min', 'há 7 min',
+            ],
+        ];
     }
 }

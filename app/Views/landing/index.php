@@ -737,28 +737,25 @@
             const toast = document.getElementById('social-proof-toast');
             const toastMessage = document.getElementById('social-proof-message');
             if (toast && toastMessage) {
-                const firstNames = ['Carla', 'Ana', 'Mariana', 'Fernanda', 'Juliana', 'Camila', 'Rafaela', 'Patricia', 'Bruna', 'Gabriela'];
-                const neighborhoods = ['Centro', 'Vila Nova', 'Jardins', 'Boa Vista', 'Planalto', 'Alvorada', 'Santa Clara', 'Industrial'];
-                const cities = ['Sao Paulo', 'Campinas', 'Curitiba', 'Belo Horizonte', 'Goiania', 'Recife', 'Fortaleza', 'Porto Alegre'];
-                const actions = [
-                    'acabou de se cadastrar no plano Free',
-                    'acabou de assinar o plano Basico',
-                    'acabou de assinar o plano Pro',
-                    'finalizou o cadastro e ja iniciou o teste'
-                ];
-                const minuteHints = ['agora mesmo', 'ha 1 min', 'ha 2 min', 'ha 3 min', 'ha 5 min', 'ha 7 min'];
+                const cfg = <?= json_encode($socialProofFakeClients ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+                const firstNames = cfg.firstNames || [];
+                const neighborhoods = cfg.neighborhoods || [];
+                const cities = cfg.cities || [];
+                const actions = cfg.actions || [];
+                const minuteHints = cfg.minuteHints || [];
+                if (firstNames.length && neighborhoods.length && cities.length && actions.length && minuteHints.length) {
+                    const pick = (list) => list[Math.floor(Math.random() * list.length)];
+                    const buildMessage = () => `${pick(firstNames)} - ${pick(neighborhoods)}, ${pick(cities)} ${pick(actions)} (${pick(minuteHints)}).`;
 
-                const pick = (list) => list[Math.floor(Math.random() * list.length)];
-                const buildMessage = () => `${pick(firstNames)} - ${pick(neighborhoods)}, ${pick(cities)} ${pick(actions)} (${pick(minuteHints)}).`;
+                    const showToast = () => {
+                        toastMessage.textContent = buildMessage();
+                        toast.classList.add('is-visible');
+                        window.setTimeout(() => toast.classList.remove('is-visible'), 4200);
+                    };
 
-                const showToast = () => {
-                    toastMessage.textContent = buildMessage();
-                    toast.classList.add('is-visible');
-                    window.setTimeout(() => toast.classList.remove('is-visible'), 4200);
-                };
-
-                window.setTimeout(showToast, 1800);
-                window.setInterval(showToast, 9800);
+                    window.setTimeout(showToast, 1800);
+                    window.setInterval(showToast, 9800);
+                }
             }
         })();
     </script>
