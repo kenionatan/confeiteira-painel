@@ -135,6 +135,29 @@ database.billing.username = painel
 database.billing.password = painel123
 database.billing.DBDriver = MySQLi
 database.billing.port = 3306
+cardapioPayments.gateway = stripe
+cardapioPayments.enableStripeCheckout = true
+cardapioPayments.stripePublicKey = chave_publica_do_stripe
+cardapioPayments.stripeSecretKey = chave_secreta_do_stripe
+cardapioPayments.stripeWebhookSecret = chave_webhook_do_stripe
+cardapioPayments.stripeCurrency = brl
+cardapioPayments.platformFeePercent = 10
+cardapioPayments.platformFeeFixed = 0
+cardapioPayments.balanceHoldDays = 7
+twilio.enabled = false
+twilio.accountSid = chave_da_twilio
+twilio.authToken = chave_da_twilio
+twilio.verifyServiceSid = chave_da_twilio
+twilio.defaultLocale = pt-BR
+resend.enabled = true
+resend.apiKey = chave_da_resend
+resend.fromEmail = no-reply@appdoce.top
+resend.fromName = Appdoce
+resend.otpSubject = 'Seu código de verificação'
+subscriptions.stripePublicKey = chave_publica_do_stripe
+subscriptions.stripeSecretKey = chave_secreta_do_stripe
+subscriptions.stripePriceBasico = chave_do_price_basico_do_stripe
+subscriptions.stripePricePro = chave_do_price_pro_do_stripe
 EOF
 
 if [[ -f "$APP_DIR/composer.json" ]]; then
