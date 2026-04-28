@@ -3,6 +3,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?php
+    $whatsappNumber = preg_replace('/\D+/', '', (string) ($whatsappNumber ?? '558235121253'));
+    $whatsappMessage = rawurlencode((string) ($whatsappMessage ?? 'Oi! Vim pela landing page e quero saber mais sobre o Appdoce.'));
+    ?>
     <title><?= esc($title ?? 'Appdoce') ?></title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/css/tabler.min.css">
@@ -453,6 +457,36 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        .whatsapp-fab {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            z-index: 60;
+            width: 60px;
+            height: 60px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #25d366;
+            color: #fff;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+            transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+        }
+
+        .whatsapp-fab:hover {
+            color: #fff;
+            transform: translateY(-2px) scale(1.04);
+            box-shadow: 0 18px 32px rgba(0, 0, 0, 0.4);
+            filter: saturate(1.05);
+        }
+
+        .whatsapp-fab svg {
+            width: 30px;
+            height: 30px;
+            fill: currentColor;
+        }
     </style>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-16541205225"></script>
@@ -650,6 +684,20 @@
         <p class="social-proof-title"><span class="social-proof-dot"></span>Atividade recente</p>
         <p class="social-proof-message" id="social-proof-message"></p>
     </aside>
+    <?php if ($whatsappNumber !== ''): ?>
+        <a
+            href="https://wa.me/<?= esc($whatsappNumber) ?>?text=<?= esc($whatsappMessage) ?>"
+            class="whatsapp-fab"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Conversar no WhatsApp"
+            title="Conversar no WhatsApp"
+        >
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M16 3C8.83 3 3 8.83 3 16c0 2.3.61 4.55 1.77 6.53L3 29l6.64-1.73A12.9 12.9 0 0 0 16 29c7.17 0 13-5.83 13-13S23.17 3 16 3Zm0 23.62c-2.02 0-3.99-.54-5.72-1.56l-.41-.24-3.94 1.03 1.05-3.85-.26-.43A10.56 10.56 0 0 1 5.4 16c0-5.85 4.76-10.61 10.6-10.61 5.85 0 10.61 4.76 10.61 10.61 0 5.84-4.76 10.6-10.61 10.6Zm5.81-7.87c-.32-.16-1.89-.93-2.18-1.03-.29-.11-.5-.16-.71.16-.21.32-.82 1.03-1.01 1.24-.18.22-.37.24-.69.08-.32-.16-1.36-.5-2.59-1.59-.96-.85-1.61-1.89-1.8-2.21-.18-.32-.02-.49.14-.65.14-.14.32-.37.48-.56.16-.19.21-.32.32-.53.1-.21.05-.4-.03-.56-.08-.16-.71-1.71-.97-2.35-.25-.61-.5-.53-.69-.54l-.59-.01c-.21 0-.54.08-.82.4-.29.32-1.08 1.06-1.08 2.59 0 1.53 1.11 3.01 1.26 3.22.16.21 2.18 3.33 5.29 4.67.74.32 1.32.51 1.77.65.74.24 1.41.21 1.95.13.59-.09 1.89-.77 2.16-1.52.27-.74.27-1.38.19-1.52-.08-.13-.29-.21-.61-.37Z"/>
+            </svg>
+        </a>
+    <?php endif; ?>
 
     <script>
         (() => {
