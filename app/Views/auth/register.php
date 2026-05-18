@@ -35,6 +35,89 @@
             padding: 8px 10px;
             background: #fff;
         }
+        .trial-offer-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1050;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(7px);
+        }
+        .trial-offer-modal.is-visible {
+            display: flex;
+        }
+        .trial-offer-card {
+            width: min(100%, 460px);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            border-radius: 22px;
+            padding: 1.45rem;
+            color: #f8fafc;
+            background:
+                radial-gradient(circle at 18% 0%, rgba(250, 204, 21, 0.28), transparent 32%),
+                linear-gradient(145deg, #0f172a 0%, #1e1b4b 58%, #0f172a 100%);
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.5);
+        }
+        .trial-offer-countdown {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 96px;
+            padding: 0.35rem 0.7rem;
+            border-radius: 999px;
+            color: #fef3c7;
+            background: rgba(250, 204, 21, 0.12);
+            border: 1px solid rgba(250, 204, 21, 0.42);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+        }
+        .trial-offer-title {
+            font-size: 1.55rem;
+            line-height: 1.12;
+            font-weight: 800;
+        }
+        .trial-offer-primary {
+            position: relative;
+            overflow: hidden;
+            border: 0;
+            border-radius: 0.9rem;
+            padding: 0.95rem 1rem;
+            font-size: 1.05rem;
+            font-weight: 800;
+            background: linear-gradient(115deg, #2563eb 0%, #0284c7 48%, #38bdf8 100%);
+            box-shadow: 0 18px 34px rgba(37, 99, 235, 0.45);
+        }
+        .trial-offer-primary::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, transparent 18%, rgba(255, 255, 255, 0.82) 50%, transparent 82%);
+            transform: translateX(-150%);
+            animation: trialOfferShine 2.4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .trial-offer-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 22px 40px rgba(37, 99, 235, 0.55);
+        }
+        .trial-offer-primary .trial-offer-lightning {
+            color: #facc15;
+            text-shadow: 0 0 14px rgba(250, 204, 21, 0.75);
+        }
+        .trial-offer-secondary {
+            color: #cbd5e1;
+        }
+        @keyframes trialOfferShine {
+            0%, 28% { transform: translateX(-150%); }
+            48%, 100% { transform: translateX(150%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .trial-offer-primary::before {
+                animation: none;
+            }
+        }
     </style>
 </head>
 <body class="d-flex flex-column">
@@ -48,6 +131,9 @@
     $useStripePaidFlow = $isPaidPlan && ($gateway ?? '') === 'stripe' && ! empty($stripePublicKey ?? '');
     $planNome = $selectedPlan['nome'] ?? ucfirst($planSlug);
     $valorMensal = isset($selectedPlan['valor_mensal']) ? number_format((float) $selectedPlan['valor_mensal'], 2, ',', '.') : '0,00';
+    $proTrialValorMensal = number_format((float) ($proTrialValorMensal ?? $selectedPlan['valor_mensal'] ?? 0), 2, ',', '.');
+    $trialOffer = ! empty($trialOffer);
+    $showFreeUpgradePopup = ! $isPaidPlan && ! empty($canOfferProTrial);
     $submitDisabled = (($gateway ?? '') === 'stripe' && empty($stripePublicKey ?? ''))
         || (($gateway ?? 'mercado_pago') === 'mercado_pago' && empty($mercadoPagoPublicKey ?? ''))
         || ($isPaidPlan && ($gateway ?? '') === 'mercado_pago');
@@ -59,11 +145,13 @@
                 <div class="card-body">
                     <h2 class="h2 text-center mb-2">Criar conta</h2>
                     <p class="text-center text-secondary mb-4">
-                        Plano: <span class="badge bg-primary-lt"><?= esc($planNome) ?></span>
-                        <?php if ($isPaidPlan): ?>
-                            &mdash; <strong>R$ <?= esc($valorMensal) ?></strong> / mês
+                        Plano: <span class="badge bg-primary-lt" id="signup-plan-name"><?= esc($trialOffer ? $planNome . ' grátis por 30 dias' : $planNome) ?></span>
+                        <?php if ($trialOffer): ?>
+                            <span id="signup-plan-price">&mdash; <strong>R$ 0,00 hoje</strong>; depois R$ <?= esc($valorMensal) ?> / mês</span>
+                        <?php elseif ($isPaidPlan): ?>
+                            <span id="signup-plan-price">&mdash; <strong>R$ <?= esc($valorMensal) ?></strong> / mês</span>
                         <?php else: ?>
-                            &mdash; <strong>Grátis</strong>
+                            <span id="signup-plan-price">&mdash; <strong>Grátis</strong></span>
                         <?php endif; ?>
                     </p>
 
@@ -101,6 +189,7 @@
                         <?= csrf_field() ?>
                         <input type="hidden" name="plan_slug" value="<?= esc($planSlug) ?>">
                         <input type="hidden" name="stripe_subscription_id" id="stripe_subscription_id" value="">
+                        <input type="hidden" name="trial_offer" id="trial_offer" value="<?= $trialOffer ? 'pro_30' : '' ?>">
 
                         <div class="mb-3">
                             <label class="form-label">Domínio</label>
@@ -192,9 +281,15 @@
                             <hr class="my-4">
                             <h3 class="h4 mb-3">Cartão</h3>
                             <?php if ($isPaidPlan && $useStripePaidFlow): ?>
-                                <p class="text-secondary mb-3">
-                                    Será cobrada a <strong>primeira mensalidade</strong> (R$ <?= esc($valorMensal) ?>) agora. Renovações automáticas no cartão cadastrado.
-                                </p>
+                                <?php if ($trialOffer): ?>
+                                    <p class="text-secondary mb-3">
+                                        Não cobraremos nada do seu cartão hoje. Você terá 30 dias grátis no Pro e pode cancelar antes da próxima cobrança.
+                                    </p>
+                                <?php else: ?>
+                                    <p class="text-secondary mb-3">
+                                        Será cobrada a <strong>primeira mensalidade</strong> (R$ <?= esc($valorMensal) ?>) agora. Renovações automáticas no cartão cadastrado.
+                                    </p>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <p class="text-secondary mb-3">Nenhuma cobrança será feita agora. Vamos apenas validar e armazenar o método de pagamento.</p>
                             <?php endif; ?>
@@ -212,7 +307,7 @@
 
                         <div class="form-footer">
                             <button type="submit" class="btn btn-primary w-100" id="signup-submit" <?= $submitDisabled ? 'disabled' : '' ?>>
-                                <?= $isPaidPlan ? 'Cadastrar e pagar' : 'Cadastrar' ?>
+                                <?= $trialOffer ? 'Ativar Pro grátis por 30 dias' : ($isPaidPlan ? 'Cadastrar e pagar' : 'Cadastrar') ?>
                             </button>
                         </div>
                     </form>
@@ -220,6 +315,28 @@
             </div>
         </div>
     </div>
+    <?php if ($showFreeUpgradePopup): ?>
+        <div class="trial-offer-modal" id="trial-offer-modal" role="dialog" aria-modal="true" aria-labelledby="trial-offer-title" aria-describedby="trial-offer-description">
+            <div class="trial-offer-card text-center">
+                <div class="mb-3">
+                    <span class="trial-offer-countdown" id="trial-offer-countdown">05:00</span>
+                </div>
+                <h2 class="trial-offer-title mb-3" id="trial-offer-title">Oferta liberada por tempo limitado</h2>
+                <p class="mb-3" id="trial-offer-description">
+                    Aproveite agora o plano Pro com acesso ilimitado grátis por 1 mês. Você usa todas as funcionalidades sem pagar nada hoje e só será cobrado depois de 30 dias.
+                </p>
+                <p class="small mb-4 text-white">
+                    Não cobraremos nada do seu cartão este mês. Você pode cancelar a qualquer momento antes da próxima cobrança.
+                </p>
+                <button type="button" class="btn btn-primary w-100 trial-offer-primary" id="trial-offer-accept">
+                    <span class="trial-offer-lightning">⚡</span> Eu quero aproveitar!
+                </button>
+                <button type="button" class="btn btn-link w-100 mt-2 trial-offer-secondary" id="trial-offer-continue">
+                    Continuar com o plano Free
+                </button>
+            </div>
+        </div>
+    <?php endif; ?>
     <script>
         (() => {
             const display = document.getElementById('signup-whatsapp-display');
@@ -324,6 +441,85 @@
             }, true);
         })();
     </script>
+    <?php if ($showFreeUpgradePopup): ?>
+    <script>
+        (() => {
+            const modal = document.getElementById('trial-offer-modal');
+            const countdown = document.getElementById('trial-offer-countdown');
+            const accept = document.getElementById('trial-offer-accept');
+            const continueFree = document.getElementById('trial-offer-continue');
+            const planInput = document.querySelector('input[name="plan_slug"]');
+            const trialInput = document.getElementById('trial_offer');
+            const submitButton = document.getElementById('signup-submit');
+            const planName = document.getElementById('signup-plan-name');
+            const planPrice = document.getElementById('signup-plan-price');
+            const stripeCard = document.getElementById('stripe-card-element');
+            const mercadoPagoCard = document.getElementById('form-checkout__cardNumber');
+            let hasOpened = false;
+            let remainingSeconds = 5 * 60;
+            let timer = null;
+
+            if (!modal || !countdown || !accept || !continueFree || !planInput || !trialInput) {
+                return;
+            }
+
+            const renderCountdown = () => {
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+                countdown.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            };
+
+            const openModal = () => {
+                if (hasOpened) {
+                    return;
+                }
+
+                hasOpened = true;
+                remainingSeconds = 5 * 60;
+                renderCountdown();
+                modal.classList.add('is-visible');
+                document.body.style.overflow = 'hidden';
+                timer = window.setInterval(() => {
+                    remainingSeconds = Math.max(remainingSeconds - 1, 0);
+                    renderCountdown();
+                    if (remainingSeconds === 0 && timer) {
+                        window.clearInterval(timer);
+                    }
+                }, 1000);
+            };
+
+            const closeModal = () => {
+                modal.classList.remove('is-visible');
+                document.body.style.overflow = '';
+            };
+
+            const activateTrialOffer = () => {
+                planInput.value = 'pro';
+                trialInput.value = 'pro_30';
+                if (planName) {
+                    planName.textContent = 'Pro grátis por 30 dias';
+                }
+                if (planPrice) {
+                    planPrice.innerHTML = '&mdash; <strong>R$ 0,00 hoje</strong>; depois R$ <?= esc($proTrialValorMensal) ?> / mês';
+                }
+                if (submitButton) {
+                    submitButton.textContent = 'Ativar Pro grátis por 30 dias';
+                }
+                window.dispatchEvent(new CustomEvent('signup:activate-pro-trial'));
+                closeModal();
+                window.setTimeout(() => stripeCard?.click(), 120);
+            };
+
+            stripeCard?.addEventListener('click', openModal);
+            stripeCard?.addEventListener('focusin', openModal);
+            mercadoPagoCard?.addEventListener('click', openModal);
+            mercadoPagoCard?.addEventListener('focusin', openModal);
+            window.addEventListener('signup:card-focus', openModal);
+            accept.addEventListener('click', activateTrialOffer);
+            continueFree.addEventListener('click', closeModal);
+        })();
+    </script>
+    <?php endif; ?>
     <?php if (($gateway ?? 'mercado_pago') === 'mercado_pago'): ?>
     <script src="https://sdk.mercadopago.com/js/v2"></script>
     <script>
@@ -423,7 +619,7 @@
             const last4Input = document.getElementById('mp_last_four_digits');
             const subIdInput = document.getElementById('stripe_subscription_id');
             const emailInput = form?.querySelector('input[name="email"]');
-            const useStripePaidFlow = <?= $useStripePaidFlow ? 'true' : 'false' ?>;
+            let useStripePaidFlow = <?= $useStripePaidFlow ? 'true' : 'false' ?>;
 
             if (!form || !publicKey) return;
 
@@ -433,6 +629,12 @@
                 hidePostalCode: true,
             });
             card.mount('#stripe-card-element');
+            card.on('focus', () => {
+                window.dispatchEvent(new CustomEvent('signup:card-focus'));
+            });
+            window.addEventListener('signup:activate-pro-trial', () => {
+                useStripePaidFlow = true;
+            });
 
             const showError = (message) => {
                 errorEl.classList.remove('d-none');

@@ -68,11 +68,22 @@ class AuthController extends BaseController
         }
 
         $isPaidPlan = $planSlug !== 'free' && (float) ($selectedPlan['valor_mensal'] ?? 0) > 0;
+        $trialOffer = $planSlug === 'pro'
+            && $this->request->getGet('trial') === '1'
+            && $subscriptions->gateway === 'stripe';
         $stripePriceId = $subscriptions->stripePriceIdForPlanSlug($planSlug);
         $paidStripeReady = $subscriptions->gateway === 'stripe'
             && $isPaidPlan
             && $stripePriceId !== ''
             && str_starts_with($stripePriceId, 'price_');
+        $proPlan = $planSlug === 'pro'
+            ? $selectedPlan
+            : $planModel->where('slug', 'pro')->where('ativo', 1)->first();
+        $canOfferProTrial = $proPlan !== null
+            && $subscriptions->gateway === 'stripe'
+            && $subscriptions->stripePublicKey !== ''
+            && $subscriptions->stripePricePro !== ''
+            && str_starts_with($subscriptions->stripePricePro, 'price_');
 
         return view('auth/register', [
             'title'             => 'Cadastro',
@@ -84,6 +95,9 @@ class AuthController extends BaseController
             'isPaidPlan'        => $isPaidPlan,
             'isPaidStripe'      => $paidStripeReady,
             'stripePriceId'     => $stripePriceId,
+            'trialOffer'        => $trialOffer,
+            'canOfferProTrial'  => $canOfferProTrial,
+            'proTrialValorMensal' => $proPlan['valor_mensal'] ?? 0,
         ]);
     }
 
@@ -279,6 +293,7 @@ class AuthController extends BaseController
             'mp_card_token' => 'required',
             'mp_payment_method_id' => 'permit_empty|max_length[80]',
             'mp_last_four_digits' => 'permit_empty|exact_length[4]',
+            'trial_offer' => 'permit_empty|in_list[pro_30]',
         ];
 
         if (! $this->validate($rules)) {
@@ -286,6 +301,7 @@ class AuthController extends BaseController
         }
 
         $planSlug = strtolower(trim((string) $this->request->getPost('plan_slug')));
+        $trialOffer = $planSlug === 'pro' && $this->request->getPost('trial_offer') === 'pro_30';
         $priceId = $subscriptions->stripePriceIdForPlanSlug($planSlug);
         if ($priceId === '' || ! str_starts_with($priceId, 'price_')) {
             return $this->jsonError('Price ID do Stripe não configurado para este plano.', 422);
@@ -329,7 +345,7 @@ class AuthController extends BaseController
 
             $stripe->paymentMethods->attach($pmId, ['customer' => $customer->id]);
 
-            $subscription = $stripe->subscriptions->create([
+            $subscriptionPayload = [
                 'customer' => $customer->id,
                 'items' => [['price' => $priceId]],
                 'default_payment_method' => $pmId,
@@ -341,9 +357,16 @@ class AuthController extends BaseController
                     'signup_email' => $email,
                     'signup_dominio' => $dominioCompleto,
                     'plan_slug' => $planSlug,
+                    'trial_offer' => $trialOffer ? 'pro_30' : '',
                 ],
                 'expand' => ['latest_invoice.payment_intent'],
-            ]);
+            ];
+
+            if ($trialOffer) {
+                $subscriptionPayload['trial_period_days'] = 30;
+            }
+
+            $subscription = $stripe->subscriptions->create($subscriptionPayload);
 
             $subscription = $stripe->subscriptions->retrieve($subscription->id, [
                 'expand' => ['latest_invoice.payment_intent'],
