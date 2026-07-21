@@ -1,13 +1,15 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="<?= esc($htmlLang ?? 'en') ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="<?= esc(lang('Landing.meta_desc')) ?>">
     <?php
     $whatsappNumber = preg_replace('/\D+/', '', (string) ($whatsappNumber ?? '558235121253'));
-    $whatsappMessage = rawurlencode((string) ($whatsappMessage ?? 'Oi! Vim pela landing page e quero saber mais sobre o Appdoce.'));
+    $whatsappMessage = rawurlencode((string) ($whatsappMessage ?? lang('Landing.whatsapp_message')));
+    $currentLocale = $locale ?? 'en';
     ?>
-    <title><?= esc($title ?? 'Appdoce') ?></title>
+    <title><?= esc($title ?? lang('Landing.title')) ?></title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/css/tabler.min.css">
     <script>document.documentElement.classList.add('js');</script>
@@ -487,6 +489,36 @@
             height: 30px;
             fill: currentColor;
         }
+
+        .lang-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-left: auto;
+        }
+
+        .lang-switch a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            padding: 0.35rem 0.55rem;
+            border-radius: 0.5rem;
+            border: 1px solid transparent;
+            transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .lang-switch a:hover {
+            color: #e2e8f0;
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+
+        .lang-switch a.is-active {
+            color: #c4b5fd;
+            background: rgba(139, 92, 246, 0.16);
+            border-color: rgba(139, 92, 246, 0.45);
+        }
     </style>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-16541205225"></script>
@@ -528,6 +560,17 @@
         <header class="site-header">
             <div class="container-xl py-2 d-flex align-items-center">
                 <h1 class="brand-logo">appdoce</h1>
+                <nav class="lang-switch" aria-label="<?= esc(lang('Landing.lang_label')) ?>">
+                    <?php foreach (($availableLocales ?? ['pt' => 'Português', 'en' => 'English', 'es' => 'Español']) as $code => $label): ?>
+                        <a
+                            href="<?= site_url('lang/' . $code) ?>"
+                            class="<?= $currentLocale === $code ? 'is-active' : '' ?>"
+                            hreflang="<?= esc($code) ?>"
+                            lang="<?= esc($code) ?>"
+                            <?= $currentLocale === $code ? 'aria-current="true"' : '' ?>
+                        ><?= esc(strtoupper($code)) ?></a>
+                    <?php endforeach; ?>
+                </nav>
             </div>
         </header>
 
@@ -535,42 +578,41 @@
             <div class="container-xl py-6">
                 <div class="row align-items-center g-4">
                     <div class="col-lg-7">
-                        <span class="badge badge-soft mb-3">Sistema premium para confeitaria</span>
-                        <h1>Transforme sua confeitaria em uma <span class="highlight">máquina de vendas organizada</span>.</h1>
+                        <span class="badge badge-soft mb-3"><?= esc(lang('Landing.badge')) ?></span>
+                        <h1><?= esc(lang('Landing.hero_title_1')) ?> <span class="highlight"><?= esc(lang('Landing.hero_title_2')) ?></span>.</h1>
                         <p class="mt-3 mb-4">
-                            Comece no plano Free com cadastro completo da conta e evolua para os planos pagos no seu ritmo.
-                            Controle clientes, pedidos e assinaturas em uma experiência moderna e rápida.
+                            <?= esc(lang('Landing.hero_lead')) ?>
                         </p>
                         <div class="d-flex gap-2 flex-wrap">
-                            <a class="btn btn-brand btn-lg w-100 hero-cta-glow" href="/assinar/free">Comece grátis</a>
+                            <a class="btn btn-brand btn-lg w-100 hero-cta-glow" href="/assinar/free"><?= esc(lang('Landing.cta_start_free')) ?></a>
                         </div>
                         <div class="mt-4 timer-box">
-                            Oferta por tempo limitado termina em: <strong id="offer-countdown">--:--:--</strong>
+                            <?= esc(lang('Landing.offer_ends_in')) ?> <strong id="offer-countdown">--:--:--</strong>
                         </div>
                         <div class="mt-3">
-                            <a class="btn btn-brand btn-lg" href="#planos">Ver planos</a>
+                            <a class="btn btn-brand btn-lg" href="#planos"><?= esc(lang('Landing.see_plans')) ?></a>
                         </div>
                     </div>
                     <div class="col-lg-5">
                         <div class="popular-card-wrap">
-                            <img class="chart-corner" src="/images/chartchar.png" alt="Gráfico do plano Pro">
+                            <img class="chart-corner" src="/images/chartchar.png" alt="<?= esc(lang('Landing.chart_alt')) ?>">
                             <div class="hero-panel popular-card p-3 p-md-4 tilt-card">
                                 <div class="mb-2">
-                                    <!--<span class="badge badge-popular">Popular</span>-->
-                                    <!--<span class="badge badge-offer">Oferta por tempo limitado</span>-->
+                                    <!--<span class="badge badge-popular"><?= esc(lang('Landing.popular')) ?></span>-->
+                                    <!--<span class="badge badge-offer"><?= esc(lang('Landing.limited_offer')) ?></span>-->
                                 </div>
-                                <h3 class="text-white mb-1">Gátis</h3>
-                                <p class="text-secondary mb-3">Tenha mais controle sobre sua confeitaria.</p>
+                                <h3 class="text-white mb-1"><?= esc(lang('Landing.hero_panel_title')) ?></h3>
+                                <p class="text-secondary mb-3"><?= esc(lang('Landing.hero_panel_desc')) ?></p>
                                 <!--<div class="plan-old">R$ 79,90/mês</div>-->
                                 <div class="plan-price mb-1">R$ 0,00</div>
                                 <ul class="feature-list mb-4">
-                                    <li>Precificação</li>
-                                    <li>Cadastro de produtos</li>
-                                    <li>Mais</li>
+                                    <?php foreach ((array) lang('Landing.hero_panel_features') as $feature): ?>
+                                        <li><?= esc($feature) ?></li>
+                                    <?php endforeach; ?>
                                 </ul>
-                                <a class="btn btn-brand btn-lg w-100 hero-cta-glow" href="/assinar/free">Comece grátis</a>
+                                <a class="btn btn-brand btn-lg w-100 hero-cta-glow" href="/assinar/free"><?= esc(lang('Landing.cta_start_free')) ?></a>
                                 <p class="text-secondary mb-0">
-                                    Cadastro rápido e fácil.
+                                    <?= esc(lang('Landing.hero_panel_note')) ?>
                                 </p>
                             </div>
                         </div>
@@ -582,31 +624,31 @@
         <section class="py-5">
             <div class="container-xl">
                 <div class="text-center mb-4">
-                    <h2 class="section-title">Feito para acelerar seu dia</h2>
+                    <h2 class="section-title"><?= esc(lang('Landing.benefits_title')) ?></h2>
                     <p class="section-subtitle">
-                        Inspirado no estilo de landing pages SaaS modernas: foco em conversão, velocidade e clareza da proposta.
+                        <?= esc(lang('Landing.benefits_subtitle')) ?>
                     </p>
                 </div>
                 <div class="row g-3">
                     <div class="col-md-4">
                         <div class="benefit-card reveal">
                             <div class="benefit-icon">01</div>
-                            <h4 class="text-white">Gestão centralizada</h4>
-                            <p class="text-secondary mb-0">Clientes, pedidos e financeiro em uma única visão com menos retrabalho.</p>
+                            <h4 class="text-white"><?= esc(lang('Landing.benefit_1_title')) ?></h4>
+                            <p class="text-secondary mb-0"><?= esc(lang('Landing.benefit_1_text')) ?></p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="benefit-card reveal">
                             <div class="benefit-icon">02</div>
-                            <h4 class="text-white">Checkout otimizado</h4>
-                            <p class="text-secondary mb-0">Fluxo rápido para assinatura e renovação com cartão.</p>
+                            <h4 class="text-white"><?= esc(lang('Landing.benefit_2_title')) ?></h4>
+                            <p class="text-secondary mb-0"><?= esc(lang('Landing.benefit_2_text')) ?></p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="benefit-card reveal">
                             <div class="benefit-icon">03</div>
-                            <h4 class="text-white">Escala sem caos</h4>
-                            <p class="text-secondary mb-0">Automatize rotinas e tome decisoes com dados em tempo real.</p>
+                            <h4 class="text-white"><?= esc(lang('Landing.benefit_3_title')) ?></h4>
+                            <p class="text-secondary mb-0"><?= esc(lang('Landing.benefit_3_text')) ?></p>
                         </div>
                     </div>
                 </div>
@@ -616,8 +658,8 @@
         <section id="planos" class="py-5">
             <div class="container-xl">
                 <div class="text-center mb-4 reveal">
-                    <h2 class="section-title">Escolha seu plano</h2>
-                    <p class="section-subtitle">Comece no Básico e evolua para o Pro com funcionalidades de IA.</p>
+                    <h2 class="section-title"><?= esc(lang('Landing.plans_title')) ?></h2>
+                    <p class="section-subtitle"><?= esc(lang('Landing.plans_subtitle')) ?></p>
                 </div>
                 <div class="row g-4">
                     <?php foreach (($plans ?? []) as $slug => $plan): ?>
@@ -625,23 +667,25 @@
                             <div class="plan-card tilt-card <?= ! empty($plan['destaque']) ? 'pro' : '' ?>">
                                 <?php if (! empty($plan['destaque'])): ?>
                                     <div class="mb-2">
-                                        <span class="badge badge-popular">Popular</span>
-                                        <span class="badge badge-offer">Oferta por tempo limitado</span>
+                                        <span class="badge badge-popular"><?= esc(lang('Landing.popular')) ?></span>
+                                        <span class="badge badge-offer"><?= esc(lang('Landing.limited_offer')) ?></span>
                                     </div>
                                 <?php endif; ?>
                                 <h3 class="text-white mb-1"><?= esc($plan['nome']) ?></h3>
                                 <p class="text-secondary mb-2"><?= esc($plan['descricao']) ?></p>
                                 <?php if (! empty($plan['valorAnterior'])): ?>
-                                    <div class="plan-old"><?= esc($plan['valorAnterior']) ?>/mês</div>
+                                    <div class="plan-old"><?= esc($plan['valorAnterior']) ?><?= esc(lang('Landing.per_month')) ?></div>
                                 <?php endif; ?>
-                                <div class="plan-price"><?= esc($plan['valor']) ?><span class="fs-5 text-secondary">/mês</span></div>
+                                <div class="plan-price"><?= esc($plan['valor']) ?><span class="fs-5 text-secondary"><?= esc(lang('Landing.per_month')) ?></span></div>
                                 <ul class="feature-list mb-4">
                                     <?php foreach (($plan['features'] ?? []) as $feature): ?>
                                         <li><?= esc($feature) ?></li>
                                     <?php endforeach; ?>
                                 </ul>
                                 <a class="btn btn-brand w-100" href="/assinar/<?= esc($slug) ?>">
-                                    <?= $slug === 'free' ? 'Cadastrar grátis' : 'Assinar ' . esc($plan['nome']) ?>
+                                    <?= $slug === 'free'
+                                        ? esc(lang('Landing.register_free'))
+                                        : esc(lang('Landing.subscribe', [$plan['nome']])) ?>
                                 </a>
                             </div>
                         </div>
@@ -653,22 +697,22 @@
         <section class="pb-6">
             <div class="container-xl">
                 <div class="text-center mb-4 reveal">
-                    <h2 class="section-title">Quem usa recomenda</h2>
-                    <p class="section-subtitle">Resultados reais de quem já organizou a operação com o sistema.</p>
+                    <h2 class="section-title"><?= esc(lang('Landing.testimonials_title')) ?></h2>
+                    <p class="section-subtitle"><?= esc(lang('Landing.testimonials_subtitle')) ?></p>
                 </div>
                 <div class="testimonial-wrap reveal">
                     <div class="testimonial-track" id="testimonial-track">
                         <article class="testimonial-card">
-                            <p class="mb-2 text-secondary">"Saimos de planilhas para um processo claro. Hoje sabemos exatamente o que vender e quando produzir."</p>
-                            <strong class="text-white">Carla, doceria artesanal</strong>
+                            <p class="mb-2 text-secondary"><?= esc(lang('Landing.testimonial_1')) ?></p>
+                            <strong class="text-white"><?= esc(lang('Landing.testimonial_1_author')) ?></strong>
                         </article>
                         <article class="testimonial-card">
-                            <p class="mb-2 text-secondary">"O checkout de assinatura reduziu muito nosso trabalho manual e o caixa ficou previsivel."</p>
-                            <strong class="text-white">Rafaela, confeitaria premium</strong>
+                            <p class="mb-2 text-secondary"><?= esc(lang('Landing.testimonial_2')) ?></p>
+                            <strong class="text-white"><?= esc(lang('Landing.testimonial_2_author')) ?></strong>
                         </article>
                         <article class="testimonial-card">
-                            <p class="mb-2 text-secondary">"A equipe ganhou velocidade no atendimento, e o cliente percebeu a melhora na hora."</p>
-                            <strong class="text-white">Juliana, ateliê de bolos</strong>
+                            <p class="mb-2 text-secondary"><?= esc(lang('Landing.testimonial_3')) ?></p>
+                            <strong class="text-white"><?= esc(lang('Landing.testimonial_3_author')) ?></strong>
                         </article>
                     </div>
                 </div>
@@ -676,12 +720,12 @@
         </section>
 
         <footer class="site-footer">
-            2026 - appdoce.top.
+            <?= esc(lang('Landing.footer')) ?>
         </footer>
     </main>
 
     <aside id="social-proof-toast" class="social-proof-toast" aria-live="polite" aria-atomic="true">
-        <p class="social-proof-title"><span class="social-proof-dot"></span>Atividade recente</p>
+        <p class="social-proof-title"><span class="social-proof-dot"></span><?= esc(lang('Landing.social_proof_title')) ?></p>
         <p class="social-proof-message" id="social-proof-message"></p>
     </aside>
     <?php if ($whatsappNumber !== ''): ?>
@@ -690,8 +734,8 @@
             class="whatsapp-fab"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Conversar no WhatsApp"
-            title="Conversar no WhatsApp"
+            aria-label="<?= esc(lang('Landing.whatsapp_aria')) ?>"
+            title="<?= esc(lang('Landing.whatsapp_aria')) ?>"
         >
             <svg viewBox="0 0 32 32" aria-hidden="true">
                 <path d="M16 3C8.83 3 3 8.83 3 16c0 2.3.61 4.55 1.77 6.53L3 29l6.64-1.73A12.9 12.9 0 0 0 16 29c7.17 0 13-5.83 13-13S23.17 3 16 3Zm0 23.62c-2.02 0-3.99-.54-5.72-1.56l-.41-.24-3.94 1.03 1.05-3.85-.26-.43A10.56 10.56 0 0 1 5.4 16c0-5.85 4.76-10.61 10.6-10.61 5.85 0 10.61 4.76 10.61 10.61 0 5.84-4.76 10.6-10.61 10.6Zm5.81-7.87c-.32-.16-1.89-.93-2.18-1.03-.29-.11-.5-.16-.71.16-.21.32-.82 1.03-1.01 1.24-.18.22-.37.24-.69.08-.32-.16-1.36-.5-2.59-1.59-.96-.85-1.61-1.89-1.8-2.21-.18-.32-.02-.49.14-.65.14-.14.32-.37.48-.56.16-.19.21-.32.32-.53.1-.21.05-.4-.03-.56-.08-.16-.71-1.71-.97-2.35-.25-.61-.5-.53-.69-.54l-.59-.01c-.21 0-.54.08-.82.4-.29.32-1.08 1.06-1.08 2.59 0 1.53 1.11 3.01 1.26 3.22.16.21 2.18 3.33 5.29 4.67.74.32 1.32.51 1.77.65.74.24 1.41.21 1.95.13.59-.09 1.89-.77 2.16-1.52.27-.74.27-1.38.19-1.52-.08-.13-.29-.21-.61-.37Z"/>
@@ -701,6 +745,8 @@
 
     <script>
         (() => {
+            const offerEndedLabel = <?= json_encode($offerEndedLabel ?? lang('Landing.offer_ended'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+            const numberLocale = <?= json_encode($numberLocale ?? 'en-US', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
             // Countdown da oferta
             const output = document.getElementById('offer-countdown');
             const targetDate = new Date('<?= esc($offerEndsAt ?? '') ?>').getTime();
@@ -709,7 +755,7 @@
                     const now = Date.now();
                     const diff = targetDate - now;
                     if (diff <= 0) {
-                        output.textContent = 'Oferta encerrada';
+                        output.textContent = offerEndedLabel;
                         return;
                     }
                     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -742,7 +788,7 @@
                     const progress = Math.min((now - start) / duration, 1);
                     const eased = 1 - Math.pow(1 - progress, 3);
                     const value = Math.floor(from + (target - from) * eased);
-                    el.textContent = new Intl.NumberFormat('pt-BR').format(value);
+                    el.textContent = new Intl.NumberFormat(numberLocale).format(value);
                     if (progress < 1) requestAnimationFrame(tick);
                 };
                 requestAnimationFrame(tick);

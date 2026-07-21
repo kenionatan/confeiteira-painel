@@ -6,6 +6,7 @@ use CodeIgniter\Router\RouteCollection;
  * @var RouteCollection $routes
  */
 $routes->get('/', 'LandingController::index');
+$routes->get('lang/(:segment)', 'LandingController::setLanguage/$1');
 $routes->get('/assinar/(:segment)', 'CheckoutController::redirect/$1');
 $routes->post('webhooks/stripe', 'StripeWebhookController::stripe');
 $routes->post('provisioning/callback', 'ProvisioningController::callback');
